@@ -18,37 +18,54 @@ const Login = ({ onLogin }) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // محاكاة تسجيل الدخول
-    setTimeout(() => {
-      if (email === "admin@engineer-mohamed.com" && password === "admin123") {
+    try {
+      const res = await fetch("http://localhost:8080/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        // حفظ البيانات
         onLogin({
-          email,
-          role: "admin",
-          name: "المدير",
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role,
+          token: data.token,
         })
+
         toast({
           title: "تم تسجيل الدخول بنجاح",
-          description: "مرحباً بك في لوحة الإدارة",
+          description: `مرحباً بك ${data.user.name}`,
         })
-      } else if (email === "student1@engineer-mohamed.com" && password === "123456") {
-        onLogin({
-          email,
-          role: "student",
-          name: "أحمد محمد",
-        })
-        toast({
-          title: "تم تسجيل الدخول بنجاح",
-          description: "مرحباً بك في بوابة الطالب",
-        })
+
+        // التوجيه بناءً على الدور
+        if (data.user.role === "admin") {
+          window.location.href = "/admin"
+        } else {
+          window.location.href = "/student"
+        }
       } else {
         toast({
           title: "خطأ في تسجيل الدخول",
-          description: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+          description: data.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
           variant: "destructive",
         })
       }
+    } catch (err) {
+      toast({
+        title: "حدث خطأ",
+        description: "فشل الاتصال بالخادم",
+        variant: "destructive",
+      })
+      console.error("Login error:", err)
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -127,25 +144,6 @@ const Login = ({ onLogin }) => {
                 )}
               </Button>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* بيانات تجريبية */}
-        <Card className="border-yellow-200 bg-yellow-50/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-yellow-800 text-lg">بيانات تجريبية</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 bg-white/70 rounded-lg">
-              <p className="font-semibold text-blue-800">حساب المدير:</p>
-              <p className="text-sm">البريد: admin@engineer-mohamed.com</p>
-              <p className="text-sm">كلمة المرور: admin123</p>
-            </div>
-            <div className="p-3 bg-white/70 rounded-lg">
-              <p className="font-semibold text-green-800">حساب الطالب:</p>
-              <p className="text-sm">البريد: student1@engineer-mohamed.com</p>
-              <p className="text-sm">كلمة المرور: 123456</p>
-            </div>
           </CardContent>
         </Card>
 
