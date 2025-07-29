@@ -29,24 +29,22 @@ app.get('/users', async (req, res) => {
     }
 });
 
-app.get('/user/:id', async (req, res) => {
-    try {
-        const id = req.params.id;
+app.get('/user/:stdcode', async (req, res) => {
+  try {
+    const stdcode = req.params.stdcode;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: "Invalid user ID format" });
-        }
+    const user = await User.findOne({ stdcode: stdcode });
 
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        res.status(200).json(user);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
+
 
 app.post("/register", async (req, res) => {
     try {
