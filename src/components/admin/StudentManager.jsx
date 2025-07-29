@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
@@ -17,8 +17,8 @@ const StudentManager = ({ onBack, students, onAddStudent, onRemoveStudent, avail
   password: "",
   phone: "",
   parentPhone: "",
-  customId: "",
-  location: "",
+  stdcode: "",
+  place: "",
   grade: "first",
 });
 
@@ -26,9 +26,9 @@ const StudentManager = ({ onBack, students, onAddStudent, onRemoveStudent, avail
   const { toast } = useToast()
 
 const handleAddStudent = async () => {
-  const { name, email, password, phone, parentPhone } = newStudent;
+  const { name, email, password, phone, parentPhone, stdcode, grade, place } = newStudent;
 
-  if (!name || !email || !password || !parentPhone) {
+  if (!name || !email || !password || !parentPhone || !stdcode || !grade || !place) {
     toast({
       title: "خطأ",
       description: "يرجى ملء جميع الحقول المطلوبة",
@@ -42,15 +42,16 @@ const handleAddStudent = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-  name,
-  email,
-  password,
-  phone: phone || "01234567890",
-  parentPhone,
-  role: "student"  // هذا الحقل مهم ولازم تبعته
-}),
-
-      
+        name,
+        email,
+        password,
+        phone,
+        parentPhone,
+        role: "student",
+        stdcode,
+        grade,
+        place,
+      }),
     });
 
     const data = await res.json();
@@ -71,11 +72,12 @@ const handleAddStudent = async () => {
 
     // أضفه لواجهة المستخدم
     const student = {
-      customId: newStudent.customId,
+      stdcode,
       name,
+      phone,
       parentPhone,
-      location: newStudent.location,
-      grade: newStudent.grade,
+      place,
+      grade,
       registrationDate: new Date().toLocaleDateString("ar-EG"),
       attendanceCount: 0,
     };
@@ -88,10 +90,11 @@ const handleAddStudent = async () => {
       password: "",
       phone: "",
       parentPhone: "",
-      customId: "",
-      location: "",
-      grade: "first",
+      stdcode: "",
+      place: "",
+      grade: "",
     });
+
     setShowAddForm(false);
   } catch (err) {
     console.error("Register Error:", err);
@@ -103,19 +106,20 @@ const handleAddStudent = async () => {
   }
 };
 
-
-
   const generateStudentId = () => {
     const lastId =
-      students.length > 0 ? Math.max(...students.map((s) => parseInt(s.customId?.replace("ST", "")) || 0)) : 0
+      students.length > 0 ? Math.max(...students.map((s) => parseInt(s.stdcode?.replace("ST", "")) || 0)) : 0
     const newId = `ST${String(lastId + 1).padStart(3, "0")}`
-    setNewStudent({ ...newStudent, customId: newId })
+    setNewStudent({ ...newStudent, stdcode: newId })
   }
 
   const generatePassword = () => {
     const password = Math.random().toString(36).slice(-8)
     setNewStudent({ ...newStudent, password })
   }
+
+
+
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -137,89 +141,110 @@ const handleAddStudent = async () => {
       </Card>
 
       {showAddForm && (
-        <Card className="border-blue-200 bg-blue-50 animate-fadeIn">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-800">
-              <User className="h-5 w-5" /> إضافة طالب جديد
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>اسم الطالب</Label>
-                <Input value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} />
-              </div>
-              <div>
-                <Label>رقم الطالب</Label>
-                <div className="flex gap-2">
-                  <Input value={newStudent.customId} onChange={(e) => setNewStudent({ ...newStudent, customId: e.target.value.toUpperCase() })} />
-                  <Button type="button" onClick={generateStudentId}>توليد</Button>
-                </div>
-              </div>
-              <div>
-                <Label>البريد الإلكتروني</Label>
-                <Input value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} />
-              </div>
-              <div>
-                <Label>كلمة المرور</Label>
-                <div className="flex gap-2">
-                  <Input value={newStudent.password} onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })} />
-                  <Button type="button" onClick={generatePassword}>توليد</Button>
-                </div>
-              </div>
-              <div>
-                <Label>رقم ولي الأمر</Label>
-                <Input value={newStudent.parentPhone} onChange={(e) => setNewStudent({ ...newStudent, parentPhone: e.target.value })} />
-              </div>
-              <div>
-                <Label>مكان الحضور</Label>
-                <Select value={newStudent.location} onValueChange={(val) => setNewStudent({ ...newStudent, location: val })}>
-                  <SelectTrigger><SelectValue placeholder="اختر المكان" /></SelectTrigger>
-                  <SelectContent>
-                    {availableLocations.map((loc) => (
-                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>الصف الدراسي</Label>
-                <Select value={newStudent.grade} onValueChange={(val) => setNewStudent({ ...newStudent, grade: val })}>
-                  <SelectTrigger><SelectValue placeholder="اختر الصف" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="first">الأول الثانوي</SelectItem>
-                    <SelectItem value="second">الثاني الثانوي</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+  <Card className="border-blue-200 bg-blue-50 animate-fadeIn">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-blue-800">
+        <User className="h-5 w-5" /> إضافة طالب جديد
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>اسم الطالب</Label>
+          <Input value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} />
+        </div>
+        <div>
+          <Label>كود الطالب</Label>
+          <div className="flex gap-2">
+            <Input value={newStudent.stdcode} onChange={(e) => setNewStudent({ ...newStudent, stdcode: e.target.value.toUpperCase() })} />
+            <Button type="button" onClick={generateStudentId}>توليد</Button>
+          </div>
+        </div>
+        <div>
+          <Label>البريد الإلكتروني</Label>
+          <Input value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} />
+        </div>
+        <div>
+          <Label>كلمة المرور</Label>
+          <div className="flex gap-2">
+            <Input value={newStudent.password} onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })} />
+            <Button type="button" onClick={generatePassword}>توليد</Button>
+          </div>
+        </div>
+        <div>
+          <Label>رقم ولي الأمر</Label>
+          <div>
+            <Input value={newStudent.parentPhone} onChange={(e) => setNewStudent({ ...newStudent, parentPhone: e.target.value })} />
+          </div>
+        </div>
+        <div>
+          <Label>رقم الطالب</Label>
+          <Input value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} />
+        </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handleAddStudent}>إضافة</Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)}>إلغاء</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {/* خانة الصف الدراسى */}
+        <div>
+          <Label>الصف الدراسي</Label>
+          <select
+            className="w-full p-2 border rounded"
+            value={newStudent.grade}
+            onChange={(e) => setNewStudent({ ...newStudent, grade: e.target.value })}
+          >
+            <option value="">اختر الصف</option>
+            <option value="الصف الأول الثانوى">الصف الأول الثانوى</option>
+            <option value="الصف الثانى الثانوى">الصف الثانى الثانوى</option>
+            <option value="الصف الثالث الثانوى">الصف الثالث الثانوى</option>
+          </select>
+        </div>
+
+        {/* خانة المكان */}
+        <div>
+          <Label>المكان</Label>
+          <select
+            className="w-full p-2 border rounded"
+            value={newStudent.place}
+            onChange={(e) => setNewStudent({ ...newStudent, place: e.target.value })}
+          >
+            <option value="">اختر المكان</option>
+            <option value="المعمل">المعمل</option>
+            <option value="المدرج">المدرج</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleAddStudent}>إضافة</Button>
+        <Button variant="outline" onClick={() => setShowAddForm(false)}>إلغاء</Button>
+      </div>
+    </CardContent>
+  </Card>
+)}
 
       <div className="grid gap-4">
-        {students.map((s) => (
-          <Card key={s.customId}>
-            <CardHeader>
-              <CardTitle>{s.name}</CardTitle>
-              <CardDescription>{s.customId} • {s.location}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-between">
-              <div>
-                <p>الهاتف: {s.parentPhone}</p>
-                <p>الحضور: {s.attendanceCount} مرة</p>
-                <p>تاريخ التسجيل: {s.registrationDate}</p>
-              </div>
-              <Button onClick={() => onRemoveStudent(s.id)} variant="outline" className="text-red-600">حذف</Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+  {students.map((s) => (
+    <Card key={s.stdcode}>
+      <CardHeader>
+        <CardTitle>{s.name}</CardTitle>
+        <CardDescription>{s.stdcode} • {s.place}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex justify-between">
+        <div>
+          <p>الهاتف: {s.parentPhone}</p>
+          <p>الحضور: {s.attendanceCount} مرة</p>
+          <p>تاريخ التسجيل: {s.registrationDate}</p>
+        </div>
+        <Button
+          onClick={() => onRemoveStudent(s.id)}
+          variant="outline"
+          className="text-red-600"
+        >
+          حذف
+        </Button>
+      </CardContent>
+    </Card>
+  ))}
+</div>
+
     </div>
   )
 }

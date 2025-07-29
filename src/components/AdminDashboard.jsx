@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Badge } from "./ui/badge"
@@ -25,13 +25,11 @@ import AwardsManager from "./admin/AwardsManager"
 import ExamManager from "./admin/ExamManager"
 import CenterSettings from "./admin/CenterSettings"
 
+const LOCALSTORAGE_KEY = "students"
+
 const AdminDashboard = ({
   user,
   onLogout,
-  students,
-  onAddStudent,
-  onRemoveStudent,
-  onMarkAttendance,
   availableLocations,
   onUpdateLocations,
   availableDays,
@@ -39,21 +37,93 @@ const AdminDashboard = ({
 }) => {
   const [currentView, setCurrentView] = useState("dashboard")
 
-  const firstGradeCount = students.filter((s) => s.grade === "first").length
-  const secondGradeCount = students.filter((s) => s.grade === "second").length
-  const totalAttendance = students.reduce((acc, s) => acc + s.attendanceCount, 0)
-  const averageAttendance = students.length > 0 ? Math.round(totalAttendance / students.length) : 0
+  // students state managed locally and persisted in localStorage
+  const [students, setStudents] = useState([])
 
-  const getCurrentWeekAttendance = () => {
-    const now = new Date()
-    const currentWeek = getWeekKey(now)
-    return students.filter((student) => student.weeklyAttendance?.[currentWeek]).length
+  // Load students from localStorage on initial load
+  useEffect(() => {
+    const saved = localStorage.getItem(LOCALSTORAGE_KEY)
+    if (saved) {
+      setStudents(JSON.parse(saved))
+    } else {
+      setStudents([])
+    }
+  }, [])
+
+  // Save students to localStorage whenever students changes
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(students))
+  }, [students])
+
+  // Add a new student (make sure the student has a unique id)
+  const onAddStudent = (student) => {
+    // يجب التأكد أن كل طالب له (id) مميز
+    if (!student.id) student.id = Date.now()
+    setStudents((prev) => [...prev, student])
   }
+  useEffect(() => {
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/users", {
+        headers: {
+          Authorization: `Bearer ${user.token}`, // ده غلط
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStudents(data.users || []);
+      } else {
+        console.error("فشل تحميل الطلاب:", data.message);
+      }
+    } catch (err) {
+      console.error("خطأ الاتصال بالسيرفر:", err);
+    }
+  };
+
+  fetchStudents();
+}, []);
+
+
+  // Remove a student by id
+  const onRemoveStudent = (studentId) => {
+    setStudents((prev) => prev.filter((s) => s.id !== studentId))
+  }
+
+  // Mark attendance for a certain student for current week
+  const onMarkAttendance = (studentId, date, weekKey) => {
+    setStudents((prev) =>
+      prev.map((student) =>
+        student.id === studentId
+          ? {
+              ...student,
+              attendanceCount: (student.attendanceCount || 0) + 1,
+              weeklyAttendance: {
+                ...(student.weeklyAttendance || {}),
+                [weekKey]: true,
+              },
+            }
+          : student
+      )
+    )
+  }
+
+  // Statistics
+  const firstGradeCount = students.filter((s) => s.grade === "الصف الأول الثانوى").length
+  const secondGradeCount = students.filter((s) => s.grade === "الصف الثانى الثانوى").length
+  const thirdGradeCount = students.filter((s) => s.grade === "الصف الثالث الثانوى").length
+  const totalAttendance = students.reduce((acc, s) => acc + (s.attendanceCount || 0), 0)
+  const averageAttendance = students.length > 0 ? Math.round(totalAttendance / students.length) : 0
 
   const getWeekKey = (date) => {
     const year = date.getFullYear()
     const week = Math.ceil(((date.getTime() - new Date(year, 0, 1).getTime()) / 86400000 + 1) / 7)
     return `${year}-W${week}`
+  }
+
+  const getCurrentWeekAttendance = () => {
+    const now = new Date()
+    const currentWeek = getWeekKey(now)
+    return students.filter((student) => student.weeklyAttendance?.[currentWeek]).length
   }
 
   const renderCurrentView = () => {

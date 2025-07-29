@@ -7,6 +7,7 @@ const cors = require('cors');
 const mongouri = "mongodb+srv://hazemmohmed564:8maZMXPSnWm7M8DS@cluster0.eqoczlu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const app = express();
 
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors({
@@ -49,7 +50,7 @@ app.get('/user/:id', async (req, res) => {
 
 app.post("/register", async (req, res) => {
     try {
-       const { name, email, password, phone, parentPhone, role } = req.body;
+       const { name, email, password, phone, parentPhone, role ,grad ,place ,stdcode} = req.body;
 
 
         if (!name || !email || !password || !phone || !parentPhone) {
@@ -81,7 +82,10 @@ app.post("/register", async (req, res) => {
   password: hashedPassword,
   phone,
   parentPhone,
-  role // ← ضروري هنا
+  role,
+  grad,
+  place,
+  stdcode
 });
 
 

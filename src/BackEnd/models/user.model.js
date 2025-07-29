@@ -11,16 +11,16 @@ const userSchema = new Schema(
     phone: { type: String, required: true },
     parentPhone: { type: String, required: true },
     grad: { type: String, required: false },
-    location: { type: String, required: false },
-    customId: { type: String, required: false },
     role: { type: String, enum: ['student', 'admin'], required: true },
+    stdcode: { type: String, required: false },
+    place: { type: String, required: false },
   },
   {
     timestamps: false,
   }
 );
 
-// ✅ التعديل هنا
+
 userSchema.methods.generateAuthToken = function () {
   const token = jwt.sign({ _id: this._id, email: this.email }, 'your_jwt_secret', {
     expiresIn: '1h',
@@ -28,6 +28,6 @@ userSchema.methods.generateAuthToken = function () {
   return token;
 };
 
-userSchema.index({ email: 1 }, { unique: true });
+//userSchema.index({ email: 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);
