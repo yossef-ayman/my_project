@@ -106,6 +106,27 @@ const handleAddStudent = async () => {
   }
 };
 
+const handleDeleteStudent = async (id) => {
+  try {
+    const res = await fetch(`http://localhost:8080/users/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.message || "فشل في حذف الطالب");
+      return;
+    }
+
+    // شيل الطالب من state
+    onRemoveStudent(id);
+
+  } catch (err) {
+    console.error("Delete error:", err);
+    alert("حصل خطأ في الاتصال بالسيرفر");
+  }
+};
+
   const generateStudentId = () => {
     const lastId =
       students.length > 0 ? Math.max(...students.map((s) => parseInt(s.stdcode?.replace("ST", "")) || 0)) : 0
@@ -191,9 +212,9 @@ const handleAddStudent = async () => {
             onChange={(e) => setNewStudent({ ...newStudent, grade: e.target.value })}
           >
             <option value="">اختر الصف</option>
-            <option value="الصف الأول الثانوى">الصف الأول الثانوى</option>
-            <option value="الصف الثانى الثانوى">الصف الثانى الثانوى</option>
-            <option value="الصف الثالث الثانوى">الصف الثالث الثانوى</option>
+            <option value="الصف الأول الثانوي">الصف الأول الثانوي</option>
+            <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
+            <option value="الصف الثالث الثانوي">الصف الثالث الثانوي</option>
           </select>
         </div>
 
@@ -233,13 +254,9 @@ const handleAddStudent = async () => {
           <p>الحضور: {s.attendanceCount} مرة</p>
           <p>تاريخ التسجيل: {s.registrationDate}</p>
         </div>
-        <Button
-          onClick={() => onRemoveStudent(s.id)}
-          variant="outline"
-          className="text-red-600"
-        >
-          حذف
-        </Button>
+        <Button onClick={() => handleDeleteStudent(s._id)} variant="outline"className="text-red-600">
+  حذف
+</Button>
       </CardContent>
     </Card>
   ))}

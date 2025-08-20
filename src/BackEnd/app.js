@@ -20,6 +20,14 @@ app.get('/', (req, res) => {
     res.send('Hello World, the winner team');
 });
 
+app.get('/students', async (req, res) => {
+  try {
+    const students = await User.find({ role: "student" }); 
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 app.get('/users', async (req, res) => {
     try {
         const users = await User.find({});
@@ -44,11 +52,22 @@ app.get('/user/:stdcode', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
+app.delete('/users/:id', async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const user = await User.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json({ message: 'User deleted successfully' });
+}   catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 app.post("/register", async (req, res) => {
     try {
-       const { name, email, password, phone, parentPhone, role ,grad ,place ,stdcode} = req.body;
+       const { name, email, password, phone, parentPhone, role ,grade ,place ,stdcode} = req.body;
 
 
         if (!name || !email || !password || !phone || !parentPhone) {
@@ -81,7 +100,7 @@ app.post("/register", async (req, res) => {
   phone,
   parentPhone,
   role,
-  grad,
+  grade,
   place,
   stdcode
 });
@@ -117,6 +136,26 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ message: error.message });
         console.log('Login failed', error.message);
     }
+});
+// ✅ Update user by stdcode
+app.put("/user/:stdcode", async (req, res) => {
+  try {
+    const { stdcode } = req.params;
+
+    const updatedUser = await User.findOneAndUpdate(
+      { stdcode: stdcode },   // 🔥 البحث بالـ stdcode
+      req.body,
+      { new: true }           // يرجّع النسخة الجديدة بعد التحديث
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ message: "User updated successfully", user: updatedUser });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 const port = 8080;

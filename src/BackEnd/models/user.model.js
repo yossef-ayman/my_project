@@ -10,7 +10,7 @@ const userSchema = new Schema(
     password: { type: String, required: true },
     phone: { type: String, required: true },
     parentPhone: { type: String, required: true },
-    grad: { type: String, required: false },
+    grade: { type: String, required: true },
     role: { type: String, enum: ['student', 'admin'], required: true },
     stdcode: { type: String, required: false },
     place: { type: String, required: false },

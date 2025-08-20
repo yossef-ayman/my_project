@@ -39,6 +39,7 @@ const AdminDashboard = ({
 
   // students state managed locally and persisted in localStorage
   const [students, setStudents] = useState([])
+  
 
   // Load students from localStorage on initial load
   useEffect(() => {
@@ -61,32 +62,28 @@ const AdminDashboard = ({
     if (!student.id) student.id = Date.now()
     setStudents((prev) => [...prev, student])
   }
-  useEffect(() => {
+useEffect(() => {
   const fetchStudents = async () => {
     try {
-      const res = await fetch("http://localhost:8080/users", {
-        headers: {
-          Authorization: `Bearer ${user.token}`, // ده غلط
-        },
-      });
-      const data = await res.json();
+      const res = await fetch("http://localhost:8080/students")
+      const data = await res.json()
       if (res.ok) {
-        setStudents(data.users || []);
+        setStudents(data || [])   // الباك إند بيرجع Array مباشرة (مش { users: [] })
       } else {
-        console.error("فشل تحميل الطلاب:", data.message);
+        console.error("فشل تحميل الطلاب:", data.message)
       }
     } catch (err) {
-      console.error("خطأ الاتصال بالسيرفر:", err);
+      console.error("خطأ الاتصال بالسيرفر:", err)
     }
-  };
+  }
 
-  fetchStudents();
-}, []);
+  fetchStudents()
+}, [])
 
 
   // Remove a student by id
   const onRemoveStudent = (studentId) => {
-    setStudents((prev) => prev.filter((s) => s.id !== studentId))
+    setStudents((prev) => prev.filter((s) => s._id !== studentId))
   }
 
   // Mark attendance for a certain student for current week
@@ -108,9 +105,9 @@ const AdminDashboard = ({
   }
 
   // Statistics
-  const firstGradeCount = students.filter((s) => s.grade === "الصف الأول الثانوى").length
-  const secondGradeCount = students.filter((s) => s.grade === "الصف الثانى الثانوى").length
-  const thirdGradeCount = students.filter((s) => s.grade === "الصف الثالث الثانوى").length
+const firstGradeCount = students.filter((s) => s.grade?.includes("الأول")).length
+const secondGradeCount = students.filter((s) => s.grade?.includes("الثاني")).length
+const thirdGradeCount = students.filter((s) => s.grade?.includes("الثالث")).length
   const totalAttendance = students.reduce((acc, s) => acc + (s.attendanceCount || 0), 0)
   const averageAttendance = students.length > 0 ? Math.round(totalAttendance / students.length) : 0
 
