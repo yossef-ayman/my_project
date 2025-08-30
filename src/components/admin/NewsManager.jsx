@@ -1,90 +1,167 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "../ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { Textarea } from "../ui/textarea"
 import { Badge } from "../ui/badge"
-import { ArrowRight, Plus, Newspaper, ImageIcon, Calendar } from "lucide-react"
+import { ArrowRight, Plus, Newspaper, Calendar } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const NewsManager = ({ onBack }) => {
-  const [news, setNews] = useState([
-    {
-      id: "1",
-      title: "بداية العام الدراسي الجديد",
-      content: "نتمنى لجميع الطلاب عاماً دراسياً موفقاً مليئاً بالنجاح والتفوق",
-      date: "2024-01-15",
-      priority: "مهم",
-    },
-  ])
+const API_URL = "http://localhost:8080/news"
 
+const NewsManager = ({ onBack }) => {
+  const [news, setNews] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newNews, setNewNews] = useState({
     title: "",
     content: "",
-    priority: "عادي",
+    priority: "medium",
     image: null,
   })
-
+  const [editingNews, setEditingNews] = useState(null)
   const { toast } = useToast()
 
-  const handleAddNews = () => {
+  // تحميل الأخبار
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(API_URL)
+        if (!res.ok) throw new Error("فشل تحميل الأخبار")
+        const data = await res.json()
+        setNews(data)
+      } catch (err) {
+        toast({ title: "خطأ", description: err.message, variant: "destructive" })
+      }
+    }
+    load()
+  }, [toast])
+  useEffect(() => {
+  if (editingNews) {
+    window.scrollTo({ top: 0, behavior: "smooth" }) // يطلع فوق بسلاسة
+  }
+}, [editingNews])
+
+  // رفع صورة
+  const handleImageUpload = (e, isEdit = false) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (isEdit) {
+        setEditingNews({ ...editingNews, image: file })
+      } else {
+        setNewNews({ ...newNews, image: file })
+      }
+    }
+  }
+
+  // نشر خبر جديد
+  const handleAddNews = async () => {
     if (!newNews.title || !newNews.content) {
-      toast({
-        title: "خطأ",
-        description: "يرجى ملء العنوان والمحتوى",
-        variant: "destructive",
-      })
+      toast({ title: "خطأ", description: "يرجى إدخال العنوان والمحتوى", variant: "destructive" })
       return
     }
 
-    const newsItem = {
-      id: Date.now().toString(),
-      title: newNews.title,
-      content: newNews.content,
-      date: new Date().toISOString().split("T")[0],
-      priority: newNews.priority,
-      image: newNews.image || undefined,
-    }
+    try {
+      const formData = new FormData()
+      formData.append("title", newNews.title)
+      formData.append("content", newNews.content)
+      formData.append("priority", newNews.priority)
+      formData.append("date", new Date().toISOString())
+      if (newNews.image) {
+        formData.append("image", newNews.image)
+      }
 
-    setNews([newsItem, ...news])
-    setNewNews({
-      title: "",
-      content: "",
-      priority: "عادي",
-      image: null,
-    })
-    setShowAddForm(false)
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: formData,
+      })
 
-    toast({
-      title: "تم النشر بنجاح",
-      description: `تم نشر الخبر: ${newNews.title}`,
-    })
-  }
+      if (!res.ok) throw new Error("فشل النشر")
+      const data = await res.json()
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setNewNews({ ...newNews, image: file })
+      setNews((prev) => [data, ...prev])
+      setNewNews({ title: "", content: "", priority: "medium", image: null })
+      setShowAddForm(false)
+
+      toast({ title: "تم", description: "تم نشر الخبر بنجاح ✅" })
+    } catch (err) {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" })
     }
   }
 
+  // تحديث خبر
+  const handleUpdateNews = async () => {
+    if (!editingNews.title || !editingNews.content) {
+      toast({ title: "خطأ", description: "يرجى إدخال العنوان والمحتوى", variant: "destructive" })
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append("title", editingNews.title)
+      formData.append("content", editingNews.content)
+      formData.append("priority", editingNews.priority)
+      formData.append("date", editingNews.date || new Date().toISOString())
+
+      if (editingNews.image instanceof File) {
+        formData.append("image", editingNews.image)
+      }
+
+      const res = await fetch(`${API_URL}/${editingNews._id}`, {
+        method: "PUT",
+        body: formData,
+      })
+
+      if (!res.ok) throw new Error("فشل التعديل")
+      const data = await res.json()
+
+      setNews((prev) => prev.map((n) => (n._id === data.news._id ? data.news : n)))
+      setEditingNews(null)
+
+      toast({ title: "تم", description: "تم تعديل الخبر بنجاح ✅" })
+    } catch (err) {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" })
+    }
+  }
+
+  // حذف خبر
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("فشل الحذف")
+
+      setNews((prev) => prev.filter((n) => n._id !== id))
+      toast({ title: "تم", description: "تم حذف الخبر بنجاح" })
+    } catch (err) {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" })
+    }
+  }
+
+  // ألوان الأولوية
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case "عاجل":
+      case "high":
         return "bg-red-500"
-      case "مهم":
+      case "medium":
         return "bg-orange-500"
-      default:
+      case "low":
         return "bg-blue-500"
+      default:
+        return "bg-gray-400"
     }
   }
 
   return (
     <div className="space-y-6" dir="rtl">
+      {/* الهيدر */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onBack}>
@@ -102,7 +179,55 @@ const NewsManager = ({ onBack }) => {
         </Button>
       </div>
 
-      {/* نموذج إضافة خبر */}
+      {/* فورم تعديل خبر */}
+      {editingNews && (
+        <Card className="animate-fadeIn border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-800">
+              ✏️ تعديل خبر
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Label>العنوان *</Label>
+            <Input
+              value={editingNews.title}
+              onChange={(e) => setEditingNews({ ...editingNews, title: e.target.value })}
+            />
+
+            <Label>المحتوى *</Label>
+            <Textarea
+              rows={4}
+              value={editingNews.content}
+              onChange={(e) => setEditingNews({ ...editingNews, content: e.target.value })}
+            />
+
+            <Label>الأولوية</Label>
+            <select
+              className="w-full p-2 border rounded-md"
+              value={editingNews.priority}
+              onChange={(e) => setEditingNews({ ...editingNews, priority: e.target.value })}
+            >
+              <option value="low">عادي</option>
+              <option value="medium">مهم</option>
+              <option value="high">عاجل</option>
+            </select>
+
+            <Label>الصورة</Label>
+            <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, true)} />
+
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleUpdateNews} className="bg-blue-600 hover:bg-blue-700">
+                حفظ التعديلات
+              </Button>
+              <Button variant="outline" onClick={() => setEditingNews(null)}>
+                إلغاء
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* فورم إضافة خبر */}
       {showAddForm && (
         <Card className="animate-fadeIn border-purple-200 bg-purple-50">
           <CardHeader>
@@ -110,64 +235,40 @@ const NewsManager = ({ onBack }) => {
               <Newspaper className="h-5 w-5" />
               إضافة خبر جديد
             </CardTitle>
-            <CardDescription className="text-purple-600">أضف خبراً أو إعلاناً جديداً للطلاب</CardDescription>
+            <CardDescription className="text-purple-600">أدخل التفاصيل التالية</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">عنوان الخبر *</Label>
-              <Input
-                id="title"
-                placeholder="أدخل عنوان الخبر..."
-                value={newNews.title}
-                onChange={(e) => setNewNews({ ...newNews, title: e.target.value })}
-              />
-            </div>
+            <Label>العنوان *</Label>
+            <Input
+              value={newNews.title}
+              onChange={(e) => setNewNews({ ...newNews, title: e.target.value })}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="content">محتوى الخبر *</Label>
-              <Textarea
-                id="content"
-                placeholder="اكتب محتوى الخبر هنا..."
-                rows={4}
-                value={newNews.content}
-                onChange={(e) => setNewNews({ ...newNews, content: e.target.value })}
-              />
-            </div>
+            <Label>المحتوى *</Label>
+            <Textarea
+              rows={4}
+              value={newNews.content}
+              onChange={(e) => setNewNews({ ...newNews, content: e.target.value })}
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="priority">أولوية الخبر</Label>
-                <select
-                  id="priority"
-                  className="w-full p-2 border rounded-md"
-                  value={newNews.priority}
-                  onChange={(e) => setNewNews({ ...newNews, priority: e.target.value })}
-                >
-                  <option value="عادي">عادي</option>
-                  <option value="مهم">مهم</option>
-                  <option value="عاجل">عاجل</option>
-                </select>
-              </div>
+            <Label>الأولوية</Label>
+            <select
+              className="w-full p-2 border rounded-md"
+              value={newNews.priority}
+              onChange={(e) => setNewNews({ ...newNews, priority: e.target.value })}
+            >
+              <option value="low">عادي</option>
+              <option value="medium">مهم</option>
+              <option value="high">عاجل</option>
+            </select>
 
-              <div className="space-y-2">
-                <Label htmlFor="image" className="flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  صورة الخبر
-                </Label>
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="cursor-pointer"
-                />
-                {newNews.image && <p className="text-sm text-purple-600">تم اختيار الصورة: {newNews.image.name}</p>}
-              </div>
-            </div>
+            <Label>الصورة</Label>
+            <Input type="file" accept="image/*" onChange={handleImageUpload} />
+            {newNews.image && <p className="text-sm text-purple-600">تم اختيار: {newNews.image.name}</p>}
 
             <div className="flex gap-2 pt-4">
               <Button onClick={handleAddNews} className="bg-purple-600 hover:bg-purple-700">
-                نشر الخبر
+                نشر
               </Button>
               <Button variant="outline" onClick={() => setShowAddForm(false)}>
                 إلغاء
@@ -180,35 +281,54 @@ const NewsManager = ({ onBack }) => {
       {/* قائمة الأخبار */}
       <div className="grid gap-4">
         {news.map((item) => (
-          <Card key={item.id} className="animate-fadeIn hover:shadow-lg transition-all duration-300">
+          <Card key={item._id}>
             <CardHeader>
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg">{item.title}</CardTitle>
-                  <CardDescription className="mt-2">{item.content}</CardDescription>
+                <div>
+                  <CardTitle>{item.title}</CardTitle>
+                  <CardDescription>{item.content}</CardDescription>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Badge className={`${getPriorityColor(item.priority)} text-white`}>{item.priority}</Badge>
-                  {item.image && (
-                    <Badge variant="outline" className="text-xs">
-                      <ImageIcon className="h-3 w-3 ml-1" />
-                      صورة
-                    </Badge>
-                  )}
-                </div>
+                <Badge className={`${getPriorityColor(item.priority)} text-white`}>
+                  {item.priority === "low"
+                    ? "عادي"
+                    : item.priority === "medium"
+                    ? "مهم"
+                    : "عاجل"}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
+              {item.imageUrl && (
+                <div className="mb-3">
+                  <img
+                    src={item.imageUrl}
+                    alt={item.title}
+                    className="w-full h-auto rounded-md border"
+                  />
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  {new Date(item.date).toLocaleDateString("ar-EG")}
+                  {item.date
+                    ? new Date(item.date).toLocaleDateString("ar-EG")
+                    : "—"}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-blue-600"
+                    onClick={() => setEditingNews(item)}
+                  >
                     تعديل
                   </Button>
-                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600"
+                    onClick={() => handleDelete(item._id)}
+                  >
                     حذف
                   </Button>
                 </div>

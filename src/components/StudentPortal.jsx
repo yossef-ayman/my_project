@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { Badge } from "./ui/badge"
@@ -29,8 +29,9 @@ const StudentPortal = ({ user, onLogout, student }) => {
   const [selectedExam, setSelectedExam] = useState(null)
   const [examResults, setExamResults] = useState([])
   const [qrGenerated, setQrGenerated] = useState(false)
-
-  const exams = [
+  const [news, setNews] = useState([])
+  const [showAllNews, setShowAllNews] = useState(false)
+ const exams = [
     {
       id: "1",
       title: "امتحان الرياضيات - الوحدة الأولى",
@@ -56,15 +57,7 @@ const StudentPortal = ({ user, onLogout, student }) => {
     },
   ]
 
-  const news = [
-    {
-      id: "1",
-      title: "بداية العام الدراسي الجديد",
-      content: "نتمنى لجميع الطلاب عاماً دراسياً موفقاً مليئاً بالنجاح والتفوق",
-      date: "2024-01-15",
-      priority: "مهم",
-    },
-  ]
+
 
   const awards = [
     {
@@ -147,6 +140,18 @@ const StudentPortal = ({ user, onLogout, student }) => {
       />
     )
   }
+  useEffect(() => {
+  const fetchNews = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/news")
+      const data = await res.json()
+      setNews(data || [])
+    } catch (err) {
+      console.error("خطأ تحميل الأخبار:", err)
+    }
+  }
+  fetchNews()
+}, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -182,7 +187,7 @@ const StudentPortal = ({ user, onLogout, student }) => {
                 مرحباً {user.name}
               </CardTitle>
               <CardDescription className="text-purple-600 font-semibold">
-                أهلاً بك في منصة أستاذ المهندسين محمد الإبراشي - فرع المعادي
+                أهلاً بك في منصة أستاذ الاستاذ - فرع المعادي
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -300,36 +305,70 @@ const StudentPortal = ({ user, onLogout, student }) => {
             </CardHeader>
             <CardContent>
               {news.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">لا توجد أخبار جديدة</p>
+                <p className="text-muted-foreground text-center py-8">
+                  لا توجد أخبار جديدة
+                </p>
               ) : (
                 <div className="space-y-4">
-                  {news.map((item) => (
+                  {/* ✅ عرض خبر واحد أو كل الأخبار حسب الزرار */}
+                  {(showAllNews ? news : [news[0]]).map((item) => (
                     <Card
-                      key={item.id}
+                      key={item._id}
                       className="border-l-4 border-l-purple-400 hover:shadow-md transition-all duration-300"
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{item.title}</h3>
-                            <p className="text-muted-foreground mt-2">{item.content}</p>
-                            <div className="flex items-center gap-2 mt-3">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">
-                                {new Date(item.date).toLocaleDateString("ar-EG")}
-                              </span>
+                        <div className="flex flex-col gap-3">
+                          {/* 🖼 عرض الصورة لو موجودة */}
+                          {item.imageUrl && (
+                            <div className="mb-2">
+                              <img
+                                src={item.imageUrl}
+                                alt={item.title}
+                                className="w-full max-h-64 object-contain rounded-md border"
+                              />
                             </div>
+                          )}
+
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold">{item.title}</h3>
+                              <p className="text-muted-foreground mt-2">{item.content}</p>
+                              <div className="flex items-center gap-2 mt-3">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">
+                                  {new Date(item.date).toLocaleDateString("ar-EG")}
+                                </span>
+                              </div>
+                            </div>
+                            <Badge className={`${getPriorityColor(item.priority)} text-white`}>
+                              {item.priority === "low"
+                                ? "عادي"
+                                : item.priority === "medium"
+                                ? "مهم"
+                                : "عاجل"}
+                            </Badge>
                           </div>
-                          <Badge className={`${getPriorityColor(item.priority)} text-white`}>{item.priority}</Badge>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
+
+                  {/* ✅ زرار يظهر لو فيه أكتر من خبر */}
+                  {news.length > 1 && (
+                    <div className="text-center">
+                      <Button
+                        onClick={() => setShowAllNews(!showAllNews)}
+                        variant="outline"
+                        className="mt-2"
+                      >
+                        {showAllNews ? "إخفاء باقي الإعلانات" : "عرض جميع الإعلانات"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
-
           {/* التكريمات */}
           <Card className="animate-fadeIn">
             <CardHeader>

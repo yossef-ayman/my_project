@@ -13,7 +13,7 @@ const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
   const [quickId, setQuickId] = useState("")
   const [todayAttendance, setTodayAttendance] = useState(new Set())
   const [isScanning, setIsScanning] = useState(false)
-  const [centerName] = useState("مركز أستاذ المهندسين محمد الإبراشي - فرع المعادي")
+  const [centerName] = useState("مركز أستاذ - فرع المعادي")
   const { toast } = useToast()
   const inputRef = useRef(null)
 

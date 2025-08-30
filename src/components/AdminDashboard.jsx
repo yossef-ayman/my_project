@@ -5,6 +5,7 @@ import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Badge } from "./ui/badge"
 import {
+  News,
   Users,
   Calendar,
   Settings,
@@ -39,6 +40,8 @@ const AdminDashboard = ({
 
   // students state managed locally and persisted in localStorage
   const [students, setStudents] = useState([])
+    const [news, setNews] = useState([])
+
   
 
   // Load students from localStorage on initial load
@@ -78,6 +81,23 @@ useEffect(() => {
   }
 
   fetchStudents()
+}, [])
+useEffect(() => {
+  const fetchNews = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/news")
+      const data = await res.json()
+      if (res.ok) {
+        setNews(data || [])
+      } else {
+        console.error("فشل تحميل الاخبار:", data.message)
+      }
+    } catch (err) {
+      console.error("خطأ الاتصال بالسيرفر:", err)
+    }
+  }
+
+  fetchNews()
 }, [])
 
 
@@ -172,7 +192,7 @@ const thirdGradeCount = students.filter((s) => s.grade?.includes("الثالث")
                   مرحباً {user.name}
                 </CardTitle>
                 <CardDescription className="text-purple-600 font-semibold">
-                  لوحة إدارة نظام الحضور - أستاذ المهندسين محمد الإبراشي
+                  لوحة إدارة نظام الحضور 
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -280,7 +300,7 @@ const thirdGradeCount = students.filter((s) => s.grade?.includes("الثالث")
                   <CardDescription className="text-purple-600">نشر الأخبار والإعلانات</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-purple-700">5</div>
+                  <div className="text-2xl font-bold text-purple-700">{news.length}</div>
                   <p className="text-sm text-purple-600">خبر منشور</p>
                 </CardContent>
               </Card>
@@ -371,7 +391,7 @@ const thirdGradeCount = students.filter((s) => s.grade?.includes("الثالث")
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <p>
-                    <strong>اسم المركز:</strong> أستاذ المهندسين محمد الإبراشي
+                    <strong>اسم المركز:</strong>الاستاذ 
                   </p>
                   <p>
                     <strong>الفرع:</strong> المعادي

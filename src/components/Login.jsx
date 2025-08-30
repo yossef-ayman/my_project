@@ -77,8 +77,8 @@ const Login = ({ onLogin }) => {
             <GraduationCap className="h-10 w-10 text-white animate-wiggle" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gradient text-glow">أستاذ المهندسين</h1>
-            <h2 className="text-2xl font-bold text-purple-800">محمد الإبراشي</h2>
+            <h1 className="text-3xl font-bold text-gradient text-glow">أستاذ </h1>
+            <h2 className="text-2xl font-bold text-purple-800">الاستاذ</h2>
             <p className="text-gray-600 mt-2">نظام إدارة الحضور الإلكتروني</p>
           </div>
         </div>
@@ -150,7 +150,7 @@ const Login = ({ onLogin }) => {
         {/* معلومات التواصل */}
         <div className="text-center text-sm text-gray-600 space-y-2">
           <p>للدعم الفني: 01002470826</p>
-          <p>© 2024 أستاذ المهندسين محمد الإبراشي - جميع الحقوق محفوظة</p>
+          <p>© 2024 الاستاذ - جميع الحقوق محفوظة</p>
         </div>
       </div>
     </div>

@@ -1,13 +1,19 @@
 const express = require("express");
 const mongoose = require('mongoose');
+const multer = require("multer");
+const path = require("path");
 const User = require('./models/user.model');
+const News = require("./models/news.model");
+
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-
+ 
 const mongouri = "mongodb+srv://hazemmohmed564:8maZMXPSnWm7M8DS@cluster0.eqoczlu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const app = express();
 
-
+app.use(cors())
+app.use(express.json())
+app.use("/uploads", express.static(path.join(__dirname, "uploads")))
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors({
@@ -15,6 +21,15 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/")
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname)
+  },
+})
+const upload = multer({ storage })
 
 app.get('/', (req, res) => {
     res.send('Hello World, the winner team');
@@ -143,9 +158,9 @@ app.put("/user/:stdcode", async (req, res) => {
     const { stdcode } = req.params;
 
     const updatedUser = await User.findOneAndUpdate(
-      { stdcode: stdcode },   // 🔥 البحث بالـ stdcode
+      { stdcode: stdcode },   
       req.body,
-      { new: true }           // يرجّع النسخة الجديدة بعد التحديث
+      { new: true }           
     );
 
     if (!updatedUser) {
@@ -157,6 +172,75 @@ app.put("/user/:stdcode", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+app.get("/news", async (req, res) => {
+  try {
+    const news = await News.find().sort({ date: -1 });
+
+    const fixedNews = news.map(item => ({
+      ...item._doc,
+      imageUrl: item.imageUrl
+        ? item.imageUrl.startsWith("http")
+          ? item.imageUrl
+          : `http://localhost:8080${item.imageUrl}`
+        : null
+    }));
+
+    res.status(200).json(fixedNews);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.post("/news", upload.single("image"), async (req, res) => {
+  try {
+    const newNews = new News({
+      title: req.body.title,
+      content: req.body.content,
+      date: req.body.date || new Date(),
+      priority: req.body.priority,
+      imageUrl: req.file ? `http://localhost:8080/uploads/${req.file.filename}` : null,
+    });
+
+    await newNews.save();
+    res.status(201).json(newNews);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error saving news" });
+  }
+});
+
+app.put("/news/:id", upload.single("image"), async (req, res) => {
+  try {
+    const updatedData = {
+      title: req.body.title,
+      content: req.body.content,
+      date: req.body.date || new Date(),
+      priority: req.body.priority,
+    }
+
+    // ✅ لو فيه صورة جديدة استعملها، لو لأ احتفظ بالقديمة
+    if (req.file) {
+      updatedData.imageUrl = `/uploads/${req.file.filename}`
+    }
+
+    const updated = await News.findByIdAndUpdate(req.params.id, updatedData, { new: true })
+    if (!updated) return res.status(404).json({ message: "الخبر غير موجود" })
+    res.json({ message: "تم التحديث", news: updated })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+app.delete("/news/:id", async (req, res) => {
+  try {
+    const deleted = await News.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "الخبر غير موجود" });
+    res.json({ message: "تم الحذف" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 const port = 8080;
 mongoose.set("strictQuery", false);

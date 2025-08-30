@@ -70,7 +70,6 @@ const handleAddStudent = async () => {
       description: `تمت إضافة الطالب ${name} بنجاح`,
     });
 
-    // أضفه لواجهة المستخدم
     const student = {
       stdcode,
       name,
