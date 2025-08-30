@@ -8,7 +8,7 @@ import { Badge } from "../ui/badge"
 import { ArrowRight, Search, QrCode, Hash, Check, Calendar, Clock, Users, MapPin } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
+const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
   const [searchTerm, setSearchTerm] = useState("")
   const [quickId, setQuickId] = useState("")
   const [todayAttendance, setTodayAttendance] = useState(new Set())
@@ -32,10 +32,11 @@ const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
     localStorage.setItem(`attendance-${today}`, JSON.stringify(Array.from(todayAttendance)))
   }, [todayAttendance, today])
 
-  const filteredStudents = students.filter(
+  // فلترة الطلاب
+  const filteredStudents = (students || []).filter(
     (student) =>
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.customId.toLowerCase().includes(searchTerm.toLowerCase()),
+      (student?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (student?.customId || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const markAttendance = (studentId) => {
@@ -49,12 +50,12 @@ const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
     }
 
     setTodayAttendance((prev) => new Set(prev).add(studentId))
-    onMarkAttendance(studentId, "القاعة الرئيسية")
+    onMarkAttendance?.(studentId, "القاعة الرئيسية")
 
     const student = students.find((s) => s.id === studentId)
     toast({
       title: "✅ تم تسجيل الحضور",
-      description: `تم تسجيل حضور ${student?.name} بنجاح`,
+      description: `تم تسجيل حضور ${student?.name || "طالب"} بنجاح`,
     })
   }
 
@@ -68,7 +69,10 @@ const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
       return
     }
 
-    const student = students.find((s) => s.customId.toLowerCase() === quickId.toLowerCase().trim())
+    const student = students.find(
+      (s) => (s?.customId || "").toLowerCase() === quickId.toLowerCase().trim(),
+    )
+
     if (!student) {
       toast({
         title: "طالب غير موجود",
@@ -95,21 +99,33 @@ const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
     setIsScanning(true)
     // محاكاة مسح QR Code
     setTimeout(() => {
+      if (students.length === 0) {
+        toast({
+          title: "⚠️ لا يوجد طلاب",
+          description: "لا يمكن المسح لعدم وجود طلاب مسجلين",
+          variant: "destructive",
+        })
+        setIsScanning(false)
+        return
+      }
       const randomStudent = students[Math.floor(Math.random() * students.length)]
       markAttendance(randomStudent.id)
       setIsScanning(false)
       toast({
         title: "تم مسح QR Code",
-        description: `تم تسجيل حضور ${randomStudent.name} عبر QR Code`,
+        description: `تم تسجيل حضور ${randomStudent?.name || "طالب"} عبر QR Code`,
       })
     }, 2000)
   }
 
   const getGradeText = (grade) => {
-    return grade === "first" ? "الأول الثانوي" : "الثاني الثانوي"
+    if (grade === "first") return "الأول الثانوي"
+    if (grade === "second") return "الثاني الثانوي"
+    return "غير محدد"
   }
 
-  const attendancePercentage = students.length > 0 ? Math.round((todayAttendance.size / students.length) * 100) : 0
+  const attendancePercentage =
+    students.length > 0 ? Math.round((todayAttendance.size / students.length) * 100) : 0
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -299,17 +315,22 @@ const AttendanceSystem = ({ onBack, students, onMarkAttendance }) => {
                               isPresent ? "bg-green-500" : "bg-gray-400"
                             }`}
                           >
-                            {isPresent ? <Check className="h-6 w-6" /> : student.customId.slice(-2)}
+                            {isPresent ? (
+                              <Check className="h-6 w-6" />
+                            ) : (
+                              (student?.customId || "??").slice(-2)
+                            )}
                           </div>
                           <div>
-                            <h3 className="font-semibold text-lg">{student.name}</h3>
-                            <div className="flex gap-3 text-sm text-muted-foreground">
-                              <span>رقم: {student.customId}</span>
-                              <span>{getGradeText(student.grade)}</span>
-                              <span>الحضور: {student.attendanceCount} مرة</span>
-                              {student.attendanceHistory && student.attendanceHistory.length > 0 && (
+                            <h3 className="font-semibold text-lg">{student?.name || "طالب مجهول"}</h3>
+                            <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
+                              <span>رقم: {student?.customId || "??"}</span>
+                              <span>{getGradeText(student?.grade)}</span>
+                              <span>الحضور: {student?.attendanceCount || 0} مرة</span>
+                              {student?.attendanceHistory && student.attendanceHistory.length > 0 && (
                                 <span>
-                                  آخر حضور: {student.attendanceHistory[student.attendanceHistory.length - 1].date}
+                                  آخر حضور:{" "}
+                                  {student.attendanceHistory[student.attendanceHistory.length - 1]?.date || "-"}
                                 </span>
                               )}
                             </div>

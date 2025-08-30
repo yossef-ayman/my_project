@@ -491,7 +491,7 @@ const StudentPortal = ({ user, onLogout, student }) => {
                     <div>
                       <p className="font-semibold text-gray-800">صفحة الفيسبوك</p>
                       <a
-                        href="https://www.facebook.com/profile.php?id=100083853121487"
+                        href="https://www.facebook.com/share/p/19BriKkS4t/"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 font-bold hover:underline"
