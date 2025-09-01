@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
@@ -10,7 +11,8 @@ import { Badge } from "../ui/badge"
 import { ArrowRight, Plus, Award, Star, Trophy, Medal } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const AwardsManager = ({ onBack }) => {
+const AwardsManager = () => {
+  const navigate = useNavigate()
   const [awards, setAwards] = useState([
     {
       id: "1",
@@ -52,18 +54,18 @@ const AwardsManager = ({ onBack }) => {
     }
 
     setAwards([award, ...awards])
-    setNewAward({
-      studentName: "",
-      title: "",
-      description: "",
-      type: "تفوق",
-    })
-    setShowAddForm(false)
-
     toast({
       title: "تم إضافة التكريم",
       description: `تم تكريم ${newAward.studentName} بنجاح`,
     })
+
+    setNewAward({ studentName: "", title: "", description: "", type: "تفوق" })
+    setShowAddForm(false)
+  }
+
+  const handleDeleteAward = (id) => {
+    setAwards(awards.filter((award) => award.id !== id))
+    toast({ title: "تم الحذف", description: "تم حذف التكريم بنجاح", variant: "destructive" })
   }
 
   const getTypeIcon = (type) => {
@@ -100,7 +102,7 @@ const AwardsManager = ({ onBack }) => {
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
             <ArrowRight className="h-4 w-4" />
             العودة
           </Button>
@@ -123,7 +125,9 @@ const AwardsManager = ({ onBack }) => {
               <Award className="h-5 w-5" />
               إضافة تكريم جديد
             </CardTitle>
-            <CardDescription className="text-yellow-600">أضف تكريماً جديداً لأحد الطلاب المتميزين</CardDescription>
+            <CardDescription className="text-yellow-600">
+              أضف تكريماً جديداً لأحد الطلاب المتميزين
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -218,7 +222,12 @@ const AwardsManager = ({ onBack }) => {
                   <Button size="sm" variant="outline">
                     تعديل
                   </Button>
-                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 bg-transparent"
+                    onClick={() => handleDeleteAward(award.id)}
+                  >
                     حذف
                   </Button>
                 </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
@@ -8,7 +9,7 @@ import { Badge } from "../ui/badge"
 import { ArrowRight, Search, QrCode, Hash, Check, Calendar, Clock, Users, MapPin } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
+const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
   const [searchTerm, setSearchTerm] = useState("")
   const [quickId, setQuickId] = useState("")
   const [todayAttendance, setTodayAttendance] = useState(new Set())
@@ -16,6 +17,7 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
   const [centerName] = useState("مركز أستاذ - فرع المعادي")
   const { toast } = useToast()
   const inputRef = useRef(null)
+  const navigate = useNavigate()
 
   const today = new Date().toLocaleDateString("ar-EG")
 
@@ -39,8 +41,8 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
       (student?.customId || "").toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const markAttendance = (studentId) => {
-    if (todayAttendance.has(studentId)) {
+  const markAttendance = (studentKey) => {
+    if (todayAttendance.has(studentKey)) {
       toast({
         title: "تم التسجيل مسبقاً",
         description: "تم تسجيل حضور هذا الطالب اليوم بالفعل",
@@ -49,10 +51,10 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
       return
     }
 
-    setTodayAttendance((prev) => new Set(prev).add(studentId))
-    onMarkAttendance?.(studentId, "القاعة الرئيسية")
+    setTodayAttendance((prev) => new Set(prev).add(studentKey))
+    onMarkAttendance?.(studentKey, "القاعة الرئيسية")
 
-    const student = students.find((s) => s.id === studentId)
+    const student = students.find((s) => (s.id || s.customId) === studentKey)
     toast({
       title: "✅ تم تسجيل الحضور",
       description: `تم تسجيل حضور ${student?.name || "طالب"} بنجاح`,
@@ -84,7 +86,7 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
       return
     }
 
-    markAttendance(student.id)
+    markAttendance(student.id || student.customId)
     setQuickId("")
     inputRef.current?.focus()
   }
@@ -97,7 +99,6 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
 
   const startQRScanning = () => {
     setIsScanning(true)
-    // محاكاة مسح QR Code
     setTimeout(() => {
       if (students.length === 0) {
         toast({
@@ -109,7 +110,7 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
         return
       }
       const randomStudent = students[Math.floor(Math.random() * students.length)]
-      markAttendance(randomStudent.id)
+      markAttendance(randomStudent.id || randomStudent.customId)
       setIsScanning(false)
       toast({
         title: "تم مسح QR Code",
@@ -130,7 +131,7 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onBack}>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
           <ArrowRight className="h-4 w-4" />
           العودة
         </Button>
@@ -299,10 +300,11 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
           ) : (
             <div className="space-y-4">
               {filteredStudents.map((student) => {
-                const isPresent = todayAttendance.has(student.id)
+                const uniqueKey = student.id || student.customId
+                const isPresent = todayAttendance.has(uniqueKey)
                 return (
                   <Card
-                    key={student.id}
+                    key={uniqueKey}
                     className={`transition-all duration-300 ${
                       isPresent ? "border-green-200 bg-green-50" : "hover:shadow-md"
                     }`}
@@ -344,7 +346,7 @@ const AttendanceSystem = ({ onBack, students = [], onMarkAttendance }) => {
                             </Badge>
                           ) : (
                             <Button
-                              onClick={() => markAttendance(student.id)}
+                              onClick={() => markAttendance(uniqueKey)}
                               size="sm"
                               className="bg-blue-600 hover:bg-blue-700"
                             >

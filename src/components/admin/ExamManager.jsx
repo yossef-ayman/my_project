@@ -66,7 +66,7 @@ const ExamManager = ({ onBack }) => {
       isActive: false,
     }
 
-    setExams([...exams, exam])
+    setExams([exam, ...exams])
     setNewExam({
       title: "",
       subject: "",
@@ -78,7 +78,7 @@ const ExamManager = ({ onBack }) => {
 
     toast({
       title: "تم الإضافة بنجاح",
-      description: `تم إضافة امتحان ${newExam.title} بنجاح`,
+      description: `تم إضافة امتحان ${exam.title} بنجاح`,
     })
   }
 
@@ -103,7 +103,9 @@ const ExamManager = ({ onBack }) => {
     }
 
     setExams((prev) =>
-      prev.map((exam) => (exam.id === selectedExamId ? { ...exam, questions: [...exam.questions, question] } : exam)),
+      prev.map((exam) =>
+        exam.id === selectedExamId ? { ...exam, questions: [...exam.questions, question] } : exam
+      )
     )
 
     setNewQuestion({
@@ -127,7 +129,9 @@ const ExamManager = ({ onBack }) => {
   }
 
   const toggleExamStatus = (examId) => {
-    setExams((prev) => prev.map((exam) => (exam.id === examId ? { ...exam, isActive: !exam.isActive } : exam)))
+    setExams((prev) =>
+      prev.map((exam) => (exam.id === examId ? { ...exam, isActive: !exam.isActive } : exam))
+    )
   }
 
   const updateOption = (index, value) => {
@@ -138,6 +142,7 @@ const ExamManager = ({ onBack }) => {
 
   return (
     <div className="space-y-6" dir="rtl">
+      {/* عنوان الصفحة وأزرار */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onBack}>
@@ -163,7 +168,9 @@ const ExamManager = ({ onBack }) => {
               <FileText className="h-5 w-5" />
               إضافة امتحان جديد
             </CardTitle>
-            <CardDescription className="text-green-600">املأ البيانات التالية لإضافة امتحان جديد</CardDescription>
+            <CardDescription className="text-green-600">
+              املأ البيانات التالية لإضافة امتحان جديد
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -245,7 +252,9 @@ const ExamManager = ({ onBack }) => {
               <Plus className="h-5 w-5" />
               إضافة سؤال جديد
             </CardTitle>
-            <CardDescription className="text-blue-600">أضف سؤالاً جديداً للامتحان</CardDescription>
+            <CardDescription className="text-blue-600">
+              أضف سؤالاً جديداً للامتحان
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -287,16 +296,16 @@ const ExamManager = ({ onBack }) => {
                     name="correctAnswer"
                     checked={newQuestion.correctAnswer === index}
                     onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: index })}
-                    className="text-green-600"
+                    className="text-blue-600"
                   />
                   <Input
                     placeholder={`الخيار ${index + 1}`}
                     value={option}
                     onChange={(e) => updateOption(index, e.target.value)}
-                    className={newQuestion.correctAnswer === index ? "border-green-500 bg-green-50" : ""}
+                    className={newQuestion.correctAnswer === index ? "border-blue-500 bg-blue-50" : ""}
                   />
                   {newQuestion.correctAnswer === index && (
-                    <Badge className="bg-green-500 text-white">الإجابة الصحيحة</Badge>
+                    <Badge className="bg-blue-500 text-white">الإجابة الصحيحة</Badge>
                   )}
                 </div>
               ))}
@@ -317,7 +326,10 @@ const ExamManager = ({ onBack }) => {
       {/* قائمة الامتحانات */}
       <div className="grid gap-4">
         {exams.map((exam) => (
-          <Card key={exam.id} className="animate-fadeIn hover:shadow-lg transition-all duration-300">
+          <Card
+            key={exam.id}
+            className="animate-fadeIn hover:shadow-lg transition-all duration-300 border-l-4 border-l-green-400"
+          >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
@@ -349,6 +361,7 @@ const ExamManager = ({ onBack }) => {
                   {exam.questions.length} سؤال
                 </div>
               </div>
+
               <div className="flex gap-2">
                 <Button
                   size="sm"

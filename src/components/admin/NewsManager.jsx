@@ -30,7 +30,7 @@ const NewsManager = ({ onBack }) => {
   const [editingNews, setEditingNews] = useState(null)
   const { toast } = useToast()
 
-  // تحميل الأخبار
+  // تحميل الأخبار من السيرفر
   useEffect(() => {
     const load = async () => {
       try {
@@ -44,21 +44,20 @@ const NewsManager = ({ onBack }) => {
     }
     load()
   }, [toast])
+
+  // Scroll للفورم عند التعديل
   useEffect(() => {
-  if (editingNews) {
-    window.scrollTo({ top: 0, behavior: "smooth" }) // يطلع فوق بسلاسة
-  }
-}, [editingNews])
+    if (editingNews) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }, [editingNews])
 
   // رفع صورة
   const handleImageUpload = (e, isEdit = false) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (isEdit) {
-        setEditingNews({ ...editingNews, image: file })
-      } else {
-        setNewNews({ ...newNews, image: file })
-      }
+      if (isEdit) setEditingNews({ ...editingNews, image: file })
+      else setNewNews({ ...newNews, image: file })
     }
   }
 
@@ -75,22 +74,15 @@ const NewsManager = ({ onBack }) => {
       formData.append("content", newNews.content)
       formData.append("priority", newNews.priority)
       formData.append("date", new Date().toISOString())
-      if (newNews.image) {
-        formData.append("image", newNews.image)
-      }
+      if (newNews.image) formData.append("image", newNews.image)
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: formData,
-      })
-
+      const res = await fetch(API_URL, { method: "POST", body: formData })
       if (!res.ok) throw new Error("فشل النشر")
       const data = await res.json()
 
       setNews((prev) => [data, ...prev])
       setNewNews({ title: "", content: "", priority: "medium", image: null })
       setShowAddForm(false)
-
       toast({ title: "تم", description: "تم نشر الخبر بنجاح ✅" })
     } catch (err) {
       toast({ title: "خطأ", description: err.message, variant: "destructive" })
@@ -110,22 +102,14 @@ const NewsManager = ({ onBack }) => {
       formData.append("content", editingNews.content)
       formData.append("priority", editingNews.priority)
       formData.append("date", editingNews.date || new Date().toISOString())
+      if (editingNews.image instanceof File) formData.append("image", editingNews.image)
 
-      if (editingNews.image instanceof File) {
-        formData.append("image", editingNews.image)
-      }
-
-      const res = await fetch(`${API_URL}/${editingNews._id}`, {
-        method: "PUT",
-        body: formData,
-      })
-
+      const res = await fetch(`${API_URL}/${editingNews._id}`, { method: "PUT", body: formData })
       if (!res.ok) throw new Error("فشل التعديل")
       const data = await res.json()
 
       setNews((prev) => prev.map((n) => (n._id === data.news._id ? data.news : n)))
       setEditingNews(null)
-
       toast({ title: "تم", description: "تم تعديل الخبر بنجاح ✅" })
     } catch (err) {
       toast({ title: "خطأ", description: err.message, variant: "destructive" })
@@ -137,7 +121,6 @@ const NewsManager = ({ onBack }) => {
     try {
       const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("فشل الحذف")
-
       setNews((prev) => prev.filter((n) => n._id !== id))
       toast({ title: "تم", description: "تم حذف الخبر بنجاح" })
     } catch (err) {
@@ -148,14 +131,10 @@ const NewsManager = ({ onBack }) => {
   // ألوان الأولوية
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case "high":
-        return "bg-red-500"
-      case "medium":
-        return "bg-orange-500"
-      case "low":
-        return "bg-blue-500"
-      default:
-        return "bg-gray-400"
+      case "high": return "bg-red-500"
+      case "medium": return "bg-orange-500"
+      case "low": return "bg-blue-500"
+      default: return "bg-gray-400"
     }
   }
 
@@ -193,14 +172,12 @@ const NewsManager = ({ onBack }) => {
               value={editingNews.title}
               onChange={(e) => setEditingNews({ ...editingNews, title: e.target.value })}
             />
-
             <Label>المحتوى *</Label>
             <Textarea
               rows={4}
               value={editingNews.content}
               onChange={(e) => setEditingNews({ ...editingNews, content: e.target.value })}
             />
-
             <Label>الأولوية</Label>
             <select
               className="w-full p-2 border rounded-md"
@@ -211,17 +188,14 @@ const NewsManager = ({ onBack }) => {
               <option value="medium">مهم</option>
               <option value="high">عاجل</option>
             </select>
-
             <Label>الصورة</Label>
             <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, true)} />
-
+            {editingNews.image && editingNews.image.name && (
+              <p className="text-sm text-blue-600">تم اختيار: {editingNews.image.name}</p>
+            )}
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleUpdateNews} className="bg-blue-600 hover:bg-blue-700">
-                حفظ التعديلات
-              </Button>
-              <Button variant="outline" onClick={() => setEditingNews(null)}>
-                إلغاء
-              </Button>
+              <Button onClick={handleUpdateNews} className="bg-blue-600 hover:bg-blue-700">حفظ التعديلات</Button>
+              <Button variant="outline" onClick={() => setEditingNews(null)}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>
@@ -243,14 +217,12 @@ const NewsManager = ({ onBack }) => {
               value={newNews.title}
               onChange={(e) => setNewNews({ ...newNews, title: e.target.value })}
             />
-
             <Label>المحتوى *</Label>
             <Textarea
               rows={4}
               value={newNews.content}
               onChange={(e) => setNewNews({ ...newNews, content: e.target.value })}
             />
-
             <Label>الأولوية</Label>
             <select
               className="w-full p-2 border rounded-md"
@@ -261,18 +233,12 @@ const NewsManager = ({ onBack }) => {
               <option value="medium">مهم</option>
               <option value="high">عاجل</option>
             </select>
-
             <Label>الصورة</Label>
             <Input type="file" accept="image/*" onChange={handleImageUpload} />
             {newNews.image && <p className="text-sm text-purple-600">تم اختيار: {newNews.image.name}</p>}
-
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleAddNews} className="bg-purple-600 hover:bg-purple-700">
-                نشر
-              </Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)}>
-                إلغاء
-              </Button>
+              <Button onClick={handleAddNews} className="bg-purple-600 hover:bg-purple-700">نشر</Button>
+              <Button variant="outline" onClick={() => setShowAddForm(false)}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>
@@ -289,48 +255,24 @@ const NewsManager = ({ onBack }) => {
                   <CardDescription>{item.content}</CardDescription>
                 </div>
                 <Badge className={`${getPriorityColor(item.priority)} text-white`}>
-                  {item.priority === "low"
-                    ? "عادي"
-                    : item.priority === "medium"
-                    ? "مهم"
-                    : "عاجل"}
+                  {item.priority === "low" ? "عادي" : item.priority === "medium" ? "مهم" : "عاجل"}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
               {item.imageUrl && (
                 <div className="mb-3">
-                  <img
-                    src={item.imageUrl}
-                    alt={item.title}
-                    className="w-full h-auto rounded-md border"
-                  />
+                  <img src={item.imageUrl} alt={item.title} className="w-full h-auto rounded-md border" />
                 </div>
               )}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  {item.date
-                    ? new Date(item.date).toLocaleDateString("ar-EG")
-                    : "—"}
+                  {item.date ? new Date(item.date).toLocaleDateString("ar-EG") : "—"}
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-blue-600"
-                    onClick={() => setEditingNews(item)}
-                  >
-                    تعديل
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600"
-                    onClick={() => handleDelete(item._id)}
-                  >
-                    حذف
-                  </Button>
+                  <Button size="sm" variant="outline" className="text-blue-600" onClick={() => setEditingNews(item)}>تعديل</Button>
+                  <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDelete(item._id)}>حذف</Button>
                 </div>
               </div>
             </CardContent>
