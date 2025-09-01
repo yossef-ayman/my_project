@@ -8,7 +8,7 @@ import { Label } from "../ui/label"
 import { User, Plus, ArrowRight, AlertCircle } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const StudentManager = ({ onBack, students, onAddStudent, onRemoveStudent }) => {
+const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }) => {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newStudent, setNewStudent] = useState({
     name: "",
@@ -56,6 +56,7 @@ const StudentManager = ({ onBack, students, onAddStudent, onRemoveStudent }) => 
         toast({ title: "فشل الإضافة", description: data.message || "فشل التسجيل", variant: "destructive" })
         return
       }
+      console.log("Register Response:", data)
 
       toast({ title: "تم التسجيل", description: `تمت إضافة الطالب ${name} بنجاح` })
 
