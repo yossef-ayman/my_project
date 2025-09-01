@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
@@ -8,7 +9,8 @@ import { Label } from "../ui/label"
 import { User, Plus, ArrowRight, AlertCircle } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }) => {
+const StudentManager = ({ students = [], onAddStudent, onRemoveStudent }) => {
+  const navigate = useNavigate()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newStudent, setNewStudent] = useState({
     name: "",
@@ -22,7 +24,6 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
   })
   const { toast } = useToast()
 
-  // توليد كود الطالب
   const generateStudentId = () => {
     const lastId =
       students.length > 0 ? Math.max(...students.map((s) => parseInt(s.stdcode?.replace("ST", "")) || 0)) : 0
@@ -30,84 +31,53 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
     setNewStudent({ ...newStudent, stdcode: newId })
   }
 
-  // توليد كلمة مرور
   const generatePassword = () => {
     const password = Math.random().toString(36).slice(-8)
     setNewStudent({ ...newStudent, password })
   }
 
-  // إضافة طالب جديد
-  const handleAddStudent = async () => {
-    const { name, email, password, phone, parentPhone, stdcode, grade, place } = newStudent
+  const handleAddStudent = () => {
+    const { name, email, password, parentPhone, stdcode, grade, place } = newStudent
     if (!name || !email || !password || !parentPhone || !stdcode || !grade || !place) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" })
       return
     }
 
-    try {
-      const res = await fetch("http://localhost:8080/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, phone, parentPhone, role: "student", stdcode, grade, place }),
-      })
+    onAddStudent({
+      stdcode,
+      name,
+      phone: newStudent.phone,
+      parentPhone,
+      place,
+      grade,
+      registrationDate: new Date().toLocaleDateString("ar-EG"),
+      attendanceCount: 0,
+    })
 
-      const data = await res.json()
-      if (!res.ok) {
-        toast({ title: "فشل الإضافة", description: data.message || "فشل التسجيل", variant: "destructive" })
-        return
-      }
-      console.log("Register Response:", data)
-
-      toast({ title: "تم التسجيل", description: `تمت إضافة الطالب ${name} بنجاح` })
-
-      onAddStudent({
-        stdcode,
-        name,
-        phone,
-        parentPhone,
-        place,
-        grade,
-        registrationDate: new Date().toLocaleDateString("ar-EG"),
-        attendanceCount: 0,
-      })
-
-      setNewStudent({ name: "", email: "", password: "", phone: "", parentPhone: "", stdcode: "", place: "", grade: "" })
-      setShowAddForm(false)
-    } catch (err) {
-      console.error("Register Error:", err)
-      toast({ title: "خطأ في الاتصال", description: "فشل الاتصال بالسيرفر", variant: "destructive" })
-    }
+    toast({ title: "تم", description: `تمت إضافة الطالب ${name} بنجاح` })
+    setNewStudent({ name: "", email: "", password: "", phone: "", parentPhone: "", stdcode: "", place: "", grade: "" })
+    setShowAddForm(false)
   }
 
-  // حذف طالب
-  const handleDeleteStudent = async (id) => {
-    try {
-      const res = await fetch(`http://localhost:8080/users/${id}`, { method: "DELETE" })
-      if (!res.ok) {
-        const data = await res.json()
-        toast({ title: "خطأ", description: data.message || "فشل في حذف الطالب", variant: "destructive" })
-        return
-      }
-      onRemoveStudent(id)
-      toast({ title: "تم", description: "تم حذف الطالب بنجاح" })
-    } catch (err) {
-      console.error("Delete error:", err)
-      toast({ title: "خطأ", description: "فشل الاتصال بالسيرفر", variant: "destructive" })
-    }
+  const handleDeleteStudent = (id) => {
+    onRemoveStudent(id)
+    toast({ title: "تم", description: "تم حذف الطالب بنجاح" })
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6 p-4" dir="rtl">
       {/* الهيدر */}
       <div className="flex justify-between items-center">
-        <Button onClick={onBack} variant="ghost"><ArrowRight className="w-4 h-4" /> العودة</Button>
-        <Button onClick={() => setShowAddForm(true)} className="bg-gradient-to-r from-blue-500 to-purple-500">
+        <Button onClick={() => navigate("/admin")} variant="ghost" className="flex items-center gap-2">
+          <ArrowRight className="w-4 h-4" /> العودة
+        </Button>
+        <Button onClick={() => setShowAddForm(true)} className="bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:scale-105 transition-transform">
           <Plus className="w-4 h-4 ml-2" /> إضافة طالب جديد
         </Button>
       </div>
 
       {/* تنبيه الحضور */}
-      <Card className="border-yellow-200 bg-yellow-50">
+      <Card className="border-yellow-300 bg-yellow-50 shadow-sm">
         <CardContent className="p-4 flex gap-2 items-center">
           <AlertCircle className="text-yellow-600" />
           <span className="text-yellow-800 font-semibold">كل طالب يمكنه الحضور مرة واحدة أسبوعياً</span>
@@ -116,7 +86,7 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
 
       {/* فورم إضافة طالب */}
       {showAddForm && (
-        <Card className="border-blue-200 bg-blue-50 animate-fadeIn">
+        <Card className="border-blue-300 bg-blue-50 shadow-md animate-fadeIn">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-800">
               <User className="h-5 w-5" /> إضافة طالب جديد
@@ -132,7 +102,7 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
                 <Label>كود الطالب</Label>
                 <div className="flex gap-2">
                   <Input value={newStudent.stdcode} onChange={(e) => setNewStudent({ ...newStudent, stdcode: e.target.value.toUpperCase() })} />
-                  <Button type="button" onClick={generateStudentId}>توليد</Button>
+                  <Button type="button" onClick={generateStudentId} className="bg-blue-600 text-white hover:bg-blue-700">توليد</Button>
                 </div>
               </div>
               <div>
@@ -143,7 +113,7 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
                 <Label>كلمة المرور</Label>
                 <div className="flex gap-2">
                   <Input value={newStudent.password} onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })} />
-                  <Button type="button" onClick={generatePassword}>توليد</Button>
+                  <Button type="button" onClick={generatePassword} className="bg-purple-600 text-white hover:bg-purple-700">توليد</Button>
                 </div>
               </div>
               <div>
@@ -173,7 +143,7 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleAddStudent}>إضافة</Button>
+              <Button onClick={handleAddStudent} className="bg-green-500 text-white hover:bg-green-600">إضافة</Button>
               <Button variant="outline" onClick={() => setShowAddForm(false)}>إلغاء</Button>
             </div>
           </CardContent>
@@ -183,18 +153,18 @@ const StudentManager = ({ onBack, students = [], onAddStudent, onRemoveStudent }
       {/* قائمة الطلاب */}
       <div className="grid gap-4">
         {students.map((s) => (
-          <Card key={s.stdcode}>
+          <Card key={s.stdcode} className="shadow-sm hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle>{s.name}</CardTitle>
               <CardDescription>{s.stdcode} • {s.place}</CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-between">
+            <CardContent className="flex justify-between items-center">
               <div>
                 <p>الهاتف: {s.parentPhone}</p>
                 <p>الحضور: {s.attendanceCount} مرة</p>
                 <p>تاريخ التسجيل: {s.registrationDate}</p>
               </div>
-              <Button onClick={() => handleDeleteStudent(s._id)} variant="outline" className="text-red-600">حذف</Button>
+              <Button onClick={() => handleDeleteStudent(s.stdcode)} variant="outline" className="text-red-600 hover:bg-red-50">حذف</Button>
             </CardContent>
           </Card>
         ))}

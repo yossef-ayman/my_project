@@ -1,6 +1,8 @@
+// src/components/admin/ExamManager.jsx
 "use client"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
@@ -11,6 +13,16 @@ import { ArrowRight, FileText, Calendar, Clock, Plus, ImageIcon, Check } from "l
 import { useToast } from "../../hooks/use-toast"
 
 const ExamManager = ({ onBack }) => {
+  const navigate = useNavigate()
+  const { toast } = useToast()
+
+  // back handler: use onBack if passed, otherwise try history.back, otherwise go /admin
+  const handleBack = () => {
+    if (typeof onBack === "function") return onBack()
+    if (window.history.length > 1) return navigate(-1)
+    return navigate("/admin")
+  }
+
   const [exams, setExams] = useState([
     {
       id: "1",
@@ -42,8 +54,6 @@ const ExamManager = ({ onBack }) => {
     options: ["", "", "", ""],
     correctAnswer: 0,
   })
-
-  const { toast } = useToast()
 
   const handleAddExam = () => {
     if (!newExam.title || !newExam.subject || !newExam.date) {
@@ -145,7 +155,7 @@ const ExamManager = ({ onBack }) => {
       {/* عنوان الصفحة وأزرار */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>
+          <Button variant="ghost" size="sm" onClick={handleBack}>
             <ArrowRight className="h-4 w-4" />
             العودة
           </Button>
@@ -160,7 +170,7 @@ const ExamManager = ({ onBack }) => {
         </Button>
       </div>
 
-      {/* نموذج إضافة امتحان */}
+      {/* بقية الواجهة كما كانت بالضبط */}
       {showAddForm && (
         <Card className="animate-fadeIn border-green-200 bg-green-50">
           <CardHeader>
@@ -272,13 +282,7 @@ const ExamManager = ({ onBack }) => {
                 <ImageIcon className="h-4 w-4" />
                 صورة السؤال (اختيارية)
               </Label>
-              <Input
-                id="questionImage"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="cursor-pointer"
-              />
+              <Input id="questionImage" type="file" accept="image/*" onChange={handleImageUpload} className="cursor-pointer" />
               {newQuestion.image && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <Check className="h-4 w-4" />
@@ -291,33 +295,16 @@ const ExamManager = ({ onBack }) => {
               <Label>الخيارات *</Label>
               {newQuestion.options.map((option, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="correctAnswer"
-                    checked={newQuestion.correctAnswer === index}
-                    onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: index })}
-                    className="text-blue-600"
-                  />
-                  <Input
-                    placeholder={`الخيار ${index + 1}`}
-                    value={option}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    className={newQuestion.correctAnswer === index ? "border-blue-500 bg-blue-50" : ""}
-                  />
-                  {newQuestion.correctAnswer === index && (
-                    <Badge className="bg-blue-500 text-white">الإجابة الصحيحة</Badge>
-                  )}
+                  <input type="radio" name="correctAnswer" checked={newQuestion.correctAnswer === index} onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: index })} className="text-blue-600" />
+                  <Input placeholder={`الخيار ${index + 1}`} value={option} onChange={(e) => updateOption(index, e.target.value)} className={newQuestion.correctAnswer === index ? "border-blue-500 bg-blue-50" : ""} />
+                  {newQuestion.correctAnswer === index && <Badge className="bg-blue-500 text-white">الإجابة الصحيحة</Badge>}
                 </div>
               ))}
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleAddQuestion} className="bg-blue-600 hover:bg-blue-700">
-                إضافة السؤال
-              </Button>
-              <Button variant="outline" onClick={() => setShowQuestionForm(false)}>
-                إلغاء
-              </Button>
+              <Button onClick={handleAddQuestion} className="bg-blue-600 hover:bg-blue-700">إضافة السؤال</Button>
+              <Button variant="outline" onClick={() => setShowQuestionForm(false)}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>
@@ -326,10 +313,7 @@ const ExamManager = ({ onBack }) => {
       {/* قائمة الامتحانات */}
       <div className="grid gap-4">
         {exams.map((exam) => (
-          <Card
-            key={exam.id}
-            className="animate-fadeIn hover:shadow-lg transition-all duration-300 border-l-4 border-l-green-400"
-          >
+          <Card key={exam.id} className="animate-fadeIn hover:shadow-lg transition-all duration-300 border-l-4 border-l-green-400">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
@@ -363,30 +347,14 @@ const ExamManager = ({ onBack }) => {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedExamId(exam.id)
-                    setShowQuestionForm(true)
-                  }}
-                >
+                <Button size="sm" variant="outline" onClick={() => { setSelectedExamId(exam.id); setShowQuestionForm(true); }}>
                   إضافة سؤال
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => toggleExamStatus(exam.id)}
-                  className={exam.isActive ? "text-red-600 hover:text-red-700" : "text-green-600 hover:text-green-700"}
-                >
+                <Button size="sm" variant="outline" onClick={() => toggleExamStatus(exam.id)} className={exam.isActive ? "text-red-600 hover:text-red-700" : "text-green-600 hover:text-green-700"}>
                   {exam.isActive ? "إيقاف" : "تفعيل"}
                 </Button>
-                <Button size="sm" variant="outline">
-                  تعديل
-                </Button>
-                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
-                  حذف
-                </Button>
+                <Button size="sm" variant="outline">تعديل</Button>
+                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">حذف</Button>
               </div>
             </CardContent>
           </Card>

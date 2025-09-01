@@ -1,6 +1,8 @@
+// src/components/admin/CenterSettings.jsx
 "use client"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
@@ -9,7 +11,14 @@ import { Badge } from "../ui/badge"
 import { ArrowRight, MapPin, Calendar, Plus, X } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, onUpdateDays, onBack }) => {
+const CenterSettings = ({ availableLocations = [], availableDays = [], onUpdateLocations = () => {}, onUpdateDays = () => {}, onBack }) => {
+  const navigate = useNavigate()
+  const handleBack = () => {
+    if (typeof onBack === "function") return onBack()
+    if (window.history.length > 1) return navigate(-1)
+    return navigate("/admin")
+  }
+
   const [newLocation, setNewLocation] = useState("")
   const [newDay, setNewDay] = useState("")
   const { toast } = useToast()
@@ -57,15 +66,15 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onBack}>
+        <Button variant="ghost" size="sm" onClick={handleBack}>
           <ArrowRight className="h-4 w-4" />
           العودة
         </Button>
         <h1 className="text-2xl font-bold">إعدادات المركز</h1>
       </div>
 
+      {/* باقي الواجهة كما في ملفك */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* إدارة الأماكن */}
         <Card className="animate-fadeIn border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -76,17 +85,8 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
-              <Input
-                placeholder="اسم المكان الجديد"
-                value={newLocation}
-                onChange={(e) => setNewLocation(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && addLocation()}
-              />
-              <Button
-                onClick={addLocation}
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
+              <Input placeholder="اسم المكان الجديد" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} onKeyPress={(e) => e.key === "Enter" && addLocation()} />
+              <Button onClick={addLocation} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -99,12 +99,7 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
                   availableLocations.map((location) => (
                     <Badge key={location} variant="secondary" className="flex items-center gap-1">
                       {location}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => removeLocation(location)}
-                      >
+                      <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground" onClick={() => removeLocation(location)}>
                         <X className="h-3 w-3" />
                       </Button>
                     </Badge>
@@ -115,7 +110,6 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
           </CardContent>
         </Card>
 
-        {/* إدارة الأيام */}
         <Card className="animate-fadeIn border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -126,17 +120,8 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
-              <Input
-                placeholder="اسم اليوم (مثل: السبت، الأحد)"
-                value={newDay}
-                onChange={(e) => setNewDay(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && addDay()}
-              />
-              <Button
-                onClick={addDay}
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
+              <Input placeholder="اسم اليوم (مثل: السبت، الأحد)" value={newDay} onChange={(e) => setNewDay(e.target.value)} onKeyPress={(e) => e.key === "Enter" && addDay()} />
+              <Button onClick={addDay} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -149,12 +134,7 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
                   availableDays.map((day) => (
                     <Badge key={day} variant="secondary" className="flex items-center gap-1">
                       {day}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => removeDay(day)}
-                      >
+                      <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground" onClick={() => removeDay(day)}>
                         <X className="h-3 w-3" />
                       </Button>
                     </Badge>
@@ -166,7 +146,6 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
         </Card>
       </div>
 
-      {/* إضافة سريعة لأيام الأسبوع */}
       <Card className="animate-fadeIn border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
         <CardHeader>
           <CardTitle>إضافة سريعة لأيام الأسبوع</CardTitle>
@@ -175,15 +154,7 @@ const CenterSettings = ({ availableLocations, availableDays, onUpdateLocations, 
         <CardContent>
           <div className="flex flex-wrap gap-2">
             {["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"].map((day) => (
-              <Button
-                key={day}
-                variant={availableDays.includes(day) ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  if (availableDays.includes(day)) removeDay(day)
-                  else onUpdateDays([...availableDays, day])
-                }}
-              >
+              <Button key={day} variant={availableDays.includes(day) ? "default" : "outline"} size="sm" onClick={() => { if (availableDays.includes(day)) removeDay(day); else onUpdateDays([...availableDays, day]) }}>
                 {day}
               </Button>
             ))}
