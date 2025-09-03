@@ -252,14 +252,15 @@ app.get("/places", async (req, res) => {
 
 app.post("/places", async (req, res) => {
   try {
-    const { name, grade, from, to, days } = req.body;
-    const place = new Place({ name, grade, from, to, days });
+    const { name, location, grade, from, to, days } = req.body;
+    const place = new Place({ name, location, grade, from, to, days });
     await place.save();
     res.status(201).json(place);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
+
 
 app.put("/places/:id", async (req, res) => {
   try {

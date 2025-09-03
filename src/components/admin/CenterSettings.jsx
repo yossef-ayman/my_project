@@ -6,10 +6,13 @@ import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
-import { ArrowRight, MapPin, Calendar, Plus, X } from "lucide-react"
+import { ArrowRight, MapPin, Plus, X } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
+import { Badge } from "../ui/badge"
 
 const API_URL = "http://localhost:8080/places"
+
+const DAYS = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"]
 
 const CenterSettings = ({ onBack }) => {
   const navigate = useNavigate()
@@ -76,10 +79,11 @@ const CenterSettings = ({ onBack }) => {
     }
   }
 
-  // التعامل مع اختيار أيام متعددة
-  const handleDaysChange = (e) => {
-    const options = Array.from(e.target.selectedOptions, (opt) => opt.value)
-    setNewDays(options)
+  // التعامل مع اختيار/إلغاء الأيام (توجّل)
+  const toggleDay = (day) => {
+    setNewDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    )
   }
 
   return (
@@ -101,11 +105,12 @@ const CenterSettings = ({ onBack }) => {
           <CardDescription>إضافة وحذف أماكن الحضور</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* إدخال بيانات المكان */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <Input placeholder="اسم المكان" value={newName} onChange={(e) => setNewName(e.target.value)} />
             <Input placeholder="الموقع" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
-            <Input type="time" placeholder="من" value={newFrom} onChange={(e) => setNewFrom(e.target.value)} />
-            <Input type="time" placeholder="إلى" value={newTo} onChange={(e) => setNewTo(e.target.value)} />
+            <Input type="time" value={newFrom} onChange={(e) => setNewFrom(e.target.value)} />
+            <Input type="time" value={newTo} onChange={(e) => setNewTo(e.target.value)} />
 
             {/* اختيار الصف */}
             <select
@@ -118,55 +123,76 @@ const CenterSettings = ({ onBack }) => {
               <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
               <option value="الصف الثالث الثانوي">الصف الثالث الثانوي</option>
             </select>
-
-            {/* اختيار الأيام (متعدد) */}
-            <select
-              multiple
-              className="w-full p-2 border rounded h-24"
-              value={newDays}
-              onChange={handleDaysChange}
-            >
-              <option value="السبت">السبت</option>
-              <option value="الأحد">الأحد</option>
-              <option value="الاثنين">الاثنين</option>
-              <option value="الثلاثاء">الثلاثاء</option>
-              <option value="الأربعاء">الأربعاء</option>
-              <option value="الخميس">الخميس</option>
-              <option value="الجمعة">الجمعة</option>
-            </select>
           </div>
-          <Button onClick={addPlace} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+
+          {/* اختيار الأيام (toggle badges) */}
+          <div className="space-y-2 mt-3">
+            <Label>الأيام المتاحة:</Label>
+            <div className="flex flex-wrap gap-2">
+              {DAYS.map((day) => (
+                <Badge
+                  key={day}
+                  onClick={() => toggleDay(day)}
+                  className={`cursor-pointer px-3 py-1 rounded-full ${
+                    newDays.includes(day)
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  {day}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <Button onClick={addPlace} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white mt-2">
             <Plus className="h-4 w-4" /> إضافة
           </Button>
 
-          {/* عرض الأماكن */}
+          {/* جدول عرض الأماكن */}
           <div className="space-y-2 mt-4">
             <Label>الأماكن المسجلة:</Label>
             {places.length === 0 ? (
               <p className="text-sm text-muted-foreground">لا توجد أماكن مضافة بعد</p>
             ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {places.map((place) => (
-                  <Card key={place._id} className="p-3 border border-gray-200 shadow-sm">
-                    <CardTitle className="flex justify-between items-center text-lg">
-                      {place.name}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => removePlace(place._id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardTitle>
-                    <CardContent className="text-sm space-y-1">
-                      <p>📍 {place.location}</p>
-                      <p>⏰ {place.from} → {place.to}</p>
-                      <p>🎓 {place.grade}</p>
-                      <p>📅 {place.days?.join(", ")}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full border border-gray-200 text-sm text-center">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="border p-2">المكان</th>
+                      <th className="border p-2">الموقع</th>
+                      <th className="border p-2">الصف</th>
+                      <th className="border p-2">الوقت</th>
+                      <th className="border p-2">الأيام</th>
+                      <th className="border p-2">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {places.map((place) => (
+                      <tr key={place._id} className="hover:bg-gray-50">
+                        <td className="border p-2">{place.name}</td>
+                        <td className="border p-2">{place.location}</td>
+                        <td className="border p-2">{place.grade}</td>
+                        <td className="border p-2">{place.from} → {place.to}</td>
+                        <td className="border p-2">
+                          {place.days?.map((d) => (
+                            <Badge key={d} className="mx-1 bg-blue-100 text-blue-700">{d}</Badge>
+                          ))}
+                        </td>
+                        <td className="border p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800"
+                            onClick={() => removePlace(place._id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
