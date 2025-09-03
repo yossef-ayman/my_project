@@ -4,6 +4,7 @@ const multer = require("multer");
 const path = require("path");
 const User = require('./models/user.model');
 const News = require("./models/news.model");
+const Place = require("./models/place.model");
 
 const bcrypt = require('bcrypt');
 const cors = require('cors');
@@ -238,6 +239,44 @@ app.delete("/news/:id", async (req, res) => {
     res.json({ message: "تم الحذف" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+app.get("/places", async (req, res) => {
+  try {
+    const places = await Place.find();
+    res.json(places);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/places", async (req, res) => {
+  try {
+    const { name, location, grade, from, to, days } = req.body;
+    const place = new Place({ name, location, grade, from, to, days });
+    await place.save();
+    res.status(201).json(place);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
+app.put("/places/:id", async (req, res) => {
+  try {
+    const place = await Place.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(place);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/places/:id", async (req, res) => {
+  try {
+    await Place.findByIdAndDelete(req.params.id);
+    res.json({ message: "تم الحذف بنجاح" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
