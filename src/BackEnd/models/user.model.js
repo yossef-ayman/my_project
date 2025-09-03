@@ -13,7 +13,7 @@ const userSchema = new Schema(
     grade: { type: String, required: true },
     role: { type: String, enum: ['student', 'admin'], required: true },
     stdcode: { type: String, required: false },
-    place: { type: String, required: false },
+    place: { type: mongoose.Schema.Types.ObjectId, ref: "Place", required: false },
   },
   {
     timestamps: false,

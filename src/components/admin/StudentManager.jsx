@@ -8,7 +8,7 @@ import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { User, Plus, ArrowRight, AlertCircle } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
-
+import { useEffect } from "react";
 const StudentManager = ({ students = [], onAddStudent, onRemoveStudent }) => {
   const navigate = useNavigate()
   const [showAddForm, setShowAddForm] = useState(false)
@@ -23,7 +23,14 @@ const StudentManager = ({ students = [], onAddStudent, onRemoveStudent }) => {
     grade: "",
   })
   const { toast } = useToast()
-
+  const [places, setPlaces] = useState([]);
+  
+  useEffect(() => {
+    fetch("http://localhost:8080/places")
+      .then((res) => res.json())
+      .then((data) => setPlaces(data))
+      .catch((err) => console.error("❌ Error fetching places:", err));
+  }, []);
   const generateStudentId = () => {
     const lastId =
       students.length > 0 ? Math.max(...students.map((s) => parseInt(s.stdcode?.replace("ST", "")) || 0)) : 0
@@ -133,14 +140,21 @@ const StudentManager = ({ students = [], onAddStudent, onRemoveStudent }) => {
                   <option value="الصف الثالث الثانوي">الصف الثالث الثانوي</option>
                 </select>
               </div>
-              <div>
-                <Label>المكان</Label>
-                <select className="w-full p-2 border rounded" value={newStudent.place} onChange={(e) => setNewStudent({ ...newStudent, place: e.target.value })}>
-                  <option value="">اختر المكان</option>
-                  <option value="المعمل">المعمل</option>
-                  <option value="المدرج">المدرج</option>
-                </select>
-              </div>
+               <div>
+      <Label>المكان</Label>
+      <select
+        className="w-full p-2 border rounded"
+        value={newStudent.place}
+        onChange={(e) => setNewStudent({ ...newStudent, place: e.target.value })}
+      >
+        <option value="">اختر المكان</option>
+        {places.map((p) => (
+          <option key={p._id} value={p._id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </div>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleAddStudent} className="bg-green-500 text-white hover:bg-green-600">إضافة</Button>
@@ -156,7 +170,7 @@ const StudentManager = ({ students = [], onAddStudent, onRemoveStudent }) => {
           <Card key={s.stdcode} className="shadow-sm hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle>{s.name}</CardTitle>
-              <CardDescription>{s.stdcode} • {s.place}</CardDescription>
+              <CardDescription>{s.stdcode} • {s.place.name}</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-between items-center">
               <div>
@@ -170,7 +184,7 @@ const StudentManager = ({ students = [], onAddStudent, onRemoveStudent }) => {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 export default StudentManager

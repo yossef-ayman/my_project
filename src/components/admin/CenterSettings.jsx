@@ -1,17 +1,17 @@
-// src/components/admin/CenterSettings.jsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
-import { Badge } from "../ui/badge"
 import { ArrowRight, MapPin, Calendar, Plus, X } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const CenterSettings = ({ availableLocations = [], availableDays = [], onUpdateLocations = () => {}, onUpdateDays = () => {}, onBack }) => {
+const API_URL = "http://localhost:8080/places"
+
+const CenterSettings = ({ onBack }) => {
   const navigate = useNavigate()
   const handleBack = () => {
     if (typeof onBack === "function") return onBack()
@@ -19,48 +19,67 @@ const CenterSettings = ({ availableLocations = [], availableDays = [], onUpdateL
     return navigate("/admin")
   }
 
-  const [newLocation, setNewLocation] = useState("")
-  const [newDay, setNewDay] = useState("")
   const { toast } = useToast()
+  const [places, setPlaces] = useState([])
+  const [newName, setNewName] = useState("")
+  const [newLocation, setNewLocation] = useState("")
+  const [newFrom, setNewFrom] = useState("")
+  const [newTo, setNewTo] = useState("")
+  const [newGrade, setNewGrade] = useState("")
+  const [newDays, setNewDays] = useState([])
 
-  const addLocation = () => {
-    const loc = newLocation.trim()
-    if (!loc) {
-      toast({ title: "خطأ", description: "يرجى إدخال اسم المكان", variant: "destructive" })
+  // تحميل الأماكن
+  useEffect(() => {
+    fetch(API_URL)
+      .then((res) => res.json())
+      .then((data) => setPlaces(data))
+      .catch(() => toast({ title: "خطأ", description: "فشل تحميل الأماكن", variant: "destructive" }))
+  }, [])
+
+  // إضافة مكان
+  const addPlace = async () => {
+    if (!newName || !newLocation || !newFrom || !newTo || !newGrade || newDays.length === 0) {
+      toast({ title: "خطأ", description: "يرجى إدخال كل البيانات", variant: "destructive" })
       return
     }
-    if (availableLocations.includes(loc)) {
-      toast({ title: "خطأ", description: "هذا المكان موجود بالفعل", variant: "destructive" })
-      return
+
+    const newPlace = { name: newName, location: newLocation, from: newFrom, to: newTo, grade: newGrade, days: newDays }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newPlace),
+      })
+      const data = await res.json()
+      setPlaces([...places, data])
+      setNewName("")
+      setNewLocation("")
+      setNewFrom("")
+      setNewTo("")
+      setNewGrade("")
+      setNewDays([])
+      toast({ title: "تم الإضافة", description: `تمت إضافة المكان: ${data.name}` })
+    } catch (err) {
+      toast({ title: "خطأ", description: "تعذر إضافة المكان", variant: "destructive" })
     }
-    onUpdateLocations([...availableLocations, loc])
-    setNewLocation("")
-    toast({ title: "تم الإضافة", description: `تم إضافة المكان: ${loc}` })
   }
 
-  const removeLocation = (location) => {
-    onUpdateLocations(availableLocations.filter((l) => l !== location))
-    toast({ title: "تم الحذف", description: `تم حذف المكان: ${location}` })
+  // حذف مكان
+  const removePlace = async (id) => {
+    try {
+      await fetch(`${API_URL}/${id}`, { method: "DELETE" })
+      setPlaces(places.filter((p) => p._id !== id))
+      toast({ title: "تم الحذف", description: "تم حذف المكان بنجاح" })
+    } catch (err) {
+      toast({ title: "خطأ", description: "تعذر حذف المكان", variant: "destructive" })
+    }
   }
 
-  const addDay = () => {
-    const day = newDay.trim()
-    if (!day) {
-      toast({ title: "خطأ", description: "يرجى إدخال اسم اليوم", variant: "destructive" })
-      return
-    }
-    if (availableDays.includes(day)) {
-      toast({ title: "خطأ", description: "هذا اليوم موجود بالفعل", variant: "destructive" })
-      return
-    }
-    onUpdateDays([...availableDays, day])
-    setNewDay("")
-    toast({ title: "تم الإضافة", description: `تم إضافة اليوم: ${day}` })
-  }
-
-  const removeDay = (day) => {
-    onUpdateDays(availableDays.filter((d) => d !== day))
-    toast({ title: "تم الحذف", description: `تم حذف اليوم: ${day}` })
+  // التعامل مع اختيار أيام متعددة
+  const handleDaysChange = (e) => {
+    const options = Array.from(e.target.selectedOptions, (opt) => opt.value)
+    setNewDays(options)
   }
 
   return (
@@ -73,91 +92,83 @@ const CenterSettings = ({ availableLocations = [], availableDays = [], onUpdateL
         <h1 className="text-2xl font-bold">إعدادات المركز</h1>
       </div>
 
-      {/* باقي الواجهة كما في ملفك */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="animate-fadeIn border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              إدارة الأماكن
-            </CardTitle>
-            <CardDescription>إضافة وحذف أماكن الحضور المتاحة</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input placeholder="اسم المكان الجديد" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} onKeyPress={(e) => e.key === "Enter" && addLocation()} />
-              <Button onClick={addLocation} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-2">
-              <Label>الأماكن المتاحة:</Label>
-              <div className="flex flex-wrap gap-2">
-                {availableLocations.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">لا توجد أماكن مضافة بعد</p>
-                ) : (
-                  availableLocations.map((location) => (
-                    <Badge key={location} variant="secondary" className="flex items-center gap-1">
-                      {location}
-                      <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground" onClick={() => removeLocation(location)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="animate-fadeIn border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              إدارة أيام التسجيل
-            </CardTitle>
-            <CardDescription>تحديد الأيام المتاحة لتسجيل الحضور</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input placeholder="اسم اليوم (مثل: السبت، الأحد)" value={newDay} onChange={(e) => setNewDay(e.target.value)} onKeyPress={(e) => e.key === "Enter" && addDay()} />
-              <Button onClick={addDay} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-2">
-              <Label>الأيام المتاحة:</Label>
-              <div className="flex flex-wrap gap-2">
-                {availableDays.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">لا توجد أيام مضافة بعد</p>
-                ) : (
-                  availableDays.map((day) => (
-                    <Badge key={day} variant="secondary" className="flex items-center gap-1">
-                      {day}
-                      <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground" onClick={() => removeDay(day)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="animate-fadeIn border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <CardHeader>
-          <CardTitle>إضافة سريعة لأيام الأسبوع</CardTitle>
-          <CardDescription>انقر على الأيام لإضافتها أو حذفها بسرعة</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            إدارة الأماكن
+          </CardTitle>
+          <CardDescription>إضافة وحذف أماكن الحضور</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"].map((day) => (
-              <Button key={day} variant={availableDays.includes(day) ? "default" : "outline"} size="sm" onClick={() => { if (availableDays.includes(day)) removeDay(day); else onUpdateDays([...availableDays, day]) }}>
-                {day}
-              </Button>
-            ))}
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <Input placeholder="اسم المكان" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <Input placeholder="الموقع" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
+            <Input type="time" placeholder="من" value={newFrom} onChange={(e) => setNewFrom(e.target.value)} />
+            <Input type="time" placeholder="إلى" value={newTo} onChange={(e) => setNewTo(e.target.value)} />
+
+            {/* اختيار الصف */}
+            <select
+              className="w-full p-2 border rounded"
+              value={newGrade}
+              onChange={(e) => setNewGrade(e.target.value)}
+            >
+              <option value="">اختر الصف</option>
+              <option value="الصف الأول الثانوي">الصف الأول الثانوي</option>
+              <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
+              <option value="الصف الثالث الثانوي">الصف الثالث الثانوي</option>
+            </select>
+
+            {/* اختيار الأيام (متعدد) */}
+            <select
+              multiple
+              className="w-full p-2 border rounded h-24"
+              value={newDays}
+              onChange={handleDaysChange}
+            >
+              <option value="السبت">السبت</option>
+              <option value="الأحد">الأحد</option>
+              <option value="الاثنين">الاثنين</option>
+              <option value="الثلاثاء">الثلاثاء</option>
+              <option value="الأربعاء">الأربعاء</option>
+              <option value="الخميس">الخميس</option>
+              <option value="الجمعة">الجمعة</option>
+            </select>
+          </div>
+          <Button onClick={addPlace} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="h-4 w-4" /> إضافة
+          </Button>
+
+          {/* عرض الأماكن */}
+          <div className="space-y-2 mt-4">
+            <Label>الأماكن المسجلة:</Label>
+            {places.length === 0 ? (
+              <p className="text-sm text-muted-foreground">لا توجد أماكن مضافة بعد</p>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {places.map((place) => (
+                  <Card key={place._id} className="p-3 border border-gray-200 shadow-sm">
+                    <CardTitle className="flex justify-between items-center text-lg">
+                      {place.name}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => removePlace(place._id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </CardTitle>
+                    <CardContent className="text-sm space-y-1">
+                      <p>📍 {place.location}</p>
+                      <p>⏰ {place.from} → {place.to}</p>
+                      <p>🎓 {place.grade}</p>
+                      <p>📅 {place.days?.join(", ")}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
