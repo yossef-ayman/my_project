@@ -12,28 +12,35 @@ import { useToast } from "../../hooks/use-toast"
 const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
   const [searchTerm, setSearchTerm] = useState("")
   const [quickId, setQuickId] = useState("")
-  const [todayAttendance, setTodayAttendance] = useState(new Set())
+  const [todayAttendance, setTodayAttendance] = useState({}) // key: studentKey, value: {time, note}
   const [isScanning, setIsScanning] = useState(false)
   const [selectedCenter, setSelectedCenter] = useState("")
   const [selectedGrade, setSelectedGrade] = useState("")
-  const [centerName] = useState("مركز أستاذ - فرع المعادي")
+  const [centerName] = useState("مركز أستاذ - يوسف ايمن  ")
+  const [notes, setNotes] = useState({})
   const { toast } = useToast()
   const inputRef = useRef(null)
   const navigate = useNavigate()
 
   const today = new Date().toLocaleDateString("ar-EG")
+  const currentTime = () => new Date().toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
 
   // تحميل بيانات الحضور من localStorage
   useEffect(() => {
     const savedAttendance = localStorage.getItem(`attendance-${today}`)
     if (savedAttendance) {
-      setTodayAttendance(new Set(JSON.parse(savedAttendance)))
+      const parsed = JSON.parse(savedAttendance)
+      setTodayAttendance(parsed)
+      const savedNotes = Object.fromEntries(
+        Object.entries(parsed).map(([key, val]) => [key, val.note || ""])
+      )
+      setNotes(savedNotes)
     }
   }, [today])
 
   // حفظ بيانات الحضور في localStorage
   useEffect(() => {
-    localStorage.setItem(`attendance-${today}`, JSON.stringify(Array.from(todayAttendance)))
+    localStorage.setItem(`attendance-${today}`, JSON.stringify(todayAttendance))
   }, [todayAttendance, today])
 
   // فلترة الطلاب
@@ -47,7 +54,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
     .filter((student) => (selectedGrade ? student.grade === selectedGrade : true))
 
   const markAttendance = (studentKey) => {
-    if (todayAttendance.has(studentKey)) {
+    if (todayAttendance[studentKey]) {
       toast({
         title: "تم التسجيل مسبقاً",
         description: "تم تسجيل حضور هذا الطالب اليوم بالفعل",
@@ -56,7 +63,13 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
       return
     }
 
-    setTodayAttendance((prev) => new Set(prev).add(studentKey))
+    const note = notes[studentKey] || ""
+    const time = currentTime()
+
+    setTodayAttendance((prev) => ({
+      ...prev,
+      [studentKey]: { time, note }
+    }))
     onMarkAttendance?.(studentKey, "القاعة الرئيسية")
 
     const student = students.find((s) => (s.id || s.customId) === studentKey)
@@ -134,7 +147,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
   // حساب الإحصائيات
   const totalStudents = filteredStudents.length
   const presentCount = filteredStudents.filter((s) =>
-    todayAttendance.has(s.id || s.customId)
+    todayAttendance[s.id || s.customId]
   ).length
   const absentCount = totalStudents - presentCount
   const absencePercentage = totalStudents > 0 ? Math.round((absentCount / totalStudents) * 100) : 0
@@ -148,9 +161,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
           العودة
         </Button>
         <h1 className="text-2xl font-bold">نظام تسجيل الحضور</h1>
-        <Badge variant="secondary" className="mr-auto">
-          {today}
-        </Badge>
+        <Badge variant="secondary" className="mr-auto">{today}</Badge>
       </div>
 
       {/* معلومات المركز */}
@@ -160,18 +171,14 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
             <MapPin className="h-5 w-5" />
             {centerName}
           </CardTitle>
-          <CardDescription className="text-blue-600">
-            نظام تسجيل الحضور الإلكتروني
-          </CardDescription>
+          <CardDescription className="text-blue-600">نظام تسجيل الحضور الإلكتروني</CardDescription>
         </CardHeader>
       </Card>
 
       {/* فلترة */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle>اختيار السنتر</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>اختيار السنتر</CardTitle></CardHeader>
           <CardContent>
             <select
               className="w-full p-2 border rounded-lg"
@@ -187,9 +194,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>اختيار السنة الدراسية</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>اختيار السنة الدراسية</CardTitle></CardHeader>
           <CardContent>
             <select
               className="w-full p-2 border rounded-lg"
@@ -225,12 +230,8 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
                 onKeyPress={handleKeyPress}
                 className="text-lg font-bold text-center"
               />
-              <Button
-                onClick={handleQuickAttendance}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Check className="h-4 w-4 ml-2" />
-                تسجيل
+              <Button onClick={handleQuickAttendance} className="bg-green-600 hover:bg-green-700">
+                <Check className="h-4 w-4 ml-2" /> تسجيل
               </Button>
             </div>
           </CardContent>
@@ -244,11 +245,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Button
-              onClick={startQRScanning}
-              disabled={isScanning}
-              className="w-full bg-purple-600 hover:bg-purple-700"
-            >
+            <Button onClick={startQRScanning} disabled={isScanning} className="w-full bg-purple-600 hover:bg-purple-700">
               {isScanning ? "جاري المسح..." : "بدء المسح"}
             </Button>
           </CardContent>
@@ -275,9 +272,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
       {/* إحصائيات */}
       <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800">
-            📊 إحصائيات الغياب
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2 text-blue-800">📊 إحصائيات الغياب</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-3 bg-white rounded-lg shadow text-center">
@@ -314,45 +309,46 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
             <div className="space-y-4">
               {filteredStudents.map((student) => {
                 const uniqueKey = student.id || student.customId
-                const isPresent = todayAttendance.has(uniqueKey)
+                const attendance = todayAttendance[uniqueKey]
+                const isPresent = !!attendance
                 return (
-                  <Card
-                    key={uniqueKey}
-                    className={`transition-all duration-300 ${
-                      isPresent ? "border-green-200 bg-green-50" : "hover:shadow-md"
-                    }`}
-                  >
-                    <CardContent className="p-4">
+                  <Card key={uniqueKey} className={`transition-all duration-300 ${isPresent ? "border-green-200 bg-green-50" : "hover:shadow-md"}`}>
+                    <CardContent className="p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div
-                            className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
-                              isPresent ? "bg-green-500" : "bg-gray-400"
-                            }`}
-                          >
-                            {isPresent ? (
-                              <Check className="h-6 w-6" />
-                            ) : (
-                              (student?.customId || "??").slice(-2)
-                            )}
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${isPresent ? "bg-green-500" : "bg-gray-400"}`}>
+                            {isPresent ? <Check className="h-6 w-6" /> : (student?.customId || "??").slice(-2)}
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-lg">
-                              {student?.name || "طالب مجهول"}
-                            </h3>
+                          <div className="flex flex-col">
+                            <h3 className="font-semibold text-lg">{student?.name || "طالب مجهول"}</h3>
                             <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
                               <span>رقم: {student?.customId || "??"}</span>
                               <span>{getGradeText(student?.grade)}</span>
                               <span>السنتر: {student?.center || "-"}</span>
                               <span>الحضور: {student?.attendanceCount || 0} مرة</span>
                             </div>
+
+                            {/* حقل الملاحظة */}
+                            <Input
+                              placeholder="أضف ملاحظة..."
+                              value={notes[uniqueKey] || ""}
+                              onChange={(e) => setNotes((prev) => ({ ...prev, [uniqueKey]: e.target.value }))}
+                              className="mt-1 text-sm"
+                              disabled={isPresent} // بعد تسجيل الحضور الملاحظة تتقفل
+                            />
+
+                            {/* وقت الحضور */}
+                            {attendance && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                تم التسجيل الساعة: {attendance.time}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div>
                           {isPresent ? (
                             <Badge className="bg-green-500 text-white">
-                              <Check className="h-3 w-3 ml-1" />
-                              حاضر
+                              <Check className="h-3 w-3 ml-1" /> حاضر
                             </Badge>
                           ) : (
                             <Button
