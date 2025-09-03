@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo ,useEffect } from "react"
@@ -13,20 +12,7 @@ import { User, Plus, Search, Trash2, Edit2, ArrowRight } from "lucide-react"
 function StudentManager() {
   const navigate = useNavigate()
 
-  const [students, setStudents] = useState([
-    {
-      id: 1,
-      name: "أحمد ياسر",
-      email: "ahmed@example.com",
-      stdcode: "ST001",
-      phone: "01012345678",
-      parentPhone: "01098765432",
-      grade: "الصف الأول الثانوي",
-      place: "المعمل",
-      registrationDate: "2025-09-01",
-      attendanceCount: 5,
-    },
-  ])
+  const [students, setStudents] = useState([])
 
   const [newStudent, setNewStudent] = useState({
     name: "",
@@ -43,13 +29,19 @@ function StudentManager() {
   const [filterPlace, setFilterPlace] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
    const [places, setPlaces] = useState([]);
-
+const [editingStudent, setEditingStudent] = useState(null);
   useEffect(() => {
     fetch("http://localhost:8080/places")
       .then((res) => res.json())
       .then((data) => setPlaces(data))
       .catch((err) => console.error("❌ Error fetching places:", err));
   }, []);
+  useEffect(() => {
+  fetch("http://localhost:8080/students")
+    .then((res) => res.json())
+    .then((data) => setStudents(data))
+    .catch((err) => console.error("❌ Error fetching students:", err));
+}, []);
   // ✅ البحث + الفلترة
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
@@ -65,36 +57,57 @@ function StudentManager() {
   }, [students, searchTerm, filterGrade, filterPlace])
 
   // ✅ إضافة طالب
-  const handleAddStudent = () => {
-    if (!newStudent.name || !newStudent.stdcode || !newStudent.grade || !newStudent.place) return
+const handleAddStudent = () => {
+  if (!newStudent.name || !newStudent.stdcode || !newStudent.grade || !newStudent.place) return;
 
-    setStudents((prev) => [
-      ...prev,
-      {
-        ...newStudent,
-        id: Date.now(),
-        registrationDate: new Date().toLocaleDateString("ar-EG"),
-        attendanceCount: 0,
-      },
-    ])
-
-    setNewStudent({
-      name: "",
-      email: "",
-      stdcode: "",
-      phone: "",
-      parentPhone: "",
-      grade: "",
-      place: "",
+  fetch("http://localhost:8080/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...newStudent,
+      registrationDate: new Date().toLocaleDateString("ar-EG"),
+      attendanceCount: 0,
+    }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      setStudents((prev) => [...prev, data]);
+      setNewStudent({ name: "", email: "", stdcode: "", phone: "", parentPhone: "", grade: "", place: "" });
+      setShowAddForm(false);
     })
-    setShowAddForm(false)
-  }
+    .catch((err) => console.error("❌ Error adding student:", err));
+};
 
   // ✅ حذف طالب
-  const handleRemoveStudent = (id) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id))
-  }
+const handleRemoveStudent = (_id) => {
+  fetch(`http://localhost:8080/students/${_id}`, {
+    method: "DELETE",
+  })
+    .then(() => {
+      setStudents((prev) => prev.filter((s) => s._id !== _id));
+    })
+    .catch((err) => console.error("❌ Error deleting student:", err));
+};
+// ✅ تحديث بيانات الطالب
+const handleUpdateStudent = () => {
+  if (!newStudent.name || !newStudent.stdcode || !newStudent.grade || !newStudent.place) return;
 
+  fetch(`http://localhost:8080/students/${editingStudent._id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(newStudent),
+  })
+    .then((res) => res.json())
+    .then((updated) => {
+      setStudents((prev) =>
+        prev.map((s) => (s._id === updated._id ? updated : s)) // حدث الطالب في state
+      );
+      setEditingStudent(null);
+      setNewStudent({ name: "", email: "", stdcode: "", phone: "", parentPhone: "", grade: "", place: "" });
+      setShowAddForm(false);
+    })
+    .catch((err) => console.error("❌ Error updating student:", err));
+};
   // ✅ ألوان مختلفة لكل صف
   const gradeColors = {
     "الصف الأول الثانوي": "from-blue-500 to-blue-700",
@@ -237,14 +250,11 @@ function StudentManager() {
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={handleAddStudent}
-                  className="bg-green-500 text-white hover:bg-green-600 rounded-xl"
-                >
-                  إضافة
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddForm(false)}>
-                  إلغاء
-                </Button>
+                onClick={editingStudent ? handleUpdateStudent : handleAddStudent}
+                className={editingStudent ? "bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl" : "bg-green-500 text-white hover:bg-green-600 rounded-xl"}
+              >
+                {editingStudent ? "تحديث" : "إضافة"}
+              </Button>
               </div>
             </CardContent>
           </Card>
@@ -255,7 +265,7 @@ function StudentManager() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredStudents.map((s, i) => (
           <motion.div
-            key={s.id}
+            key={s._id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
@@ -282,13 +292,21 @@ function StudentManager() {
                 <p>✅ الحضور: {s.attendanceCount} مرة</p>
                 <p>📅 التسجيل: {s.registrationDate}</p>
                 <div className="flex justify-end gap-2 mt-3">
-                  <Button size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-white rounded-lg">
+                  <Button
+                    size="sm"
+                    className="bg-yellow-400 hover:bg-yellow-500 text-white rounded-lg"
+                    onClick={() => {
+                      setEditingStudent(s);      // الطالب اللي مختارناه
+                      setNewStudent(s);          // يملأ الفورم ببياناته
+                      setShowAddForm(true);      // يفتح الفورم
+                    }}
+                  >
                     <Edit2 className="w-4 h-4" /> تعديل
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleRemoveStudent(s.id)}
+                    onClick={() => handleRemoveStudent(s._id)}
                     className="text-red-600 hover:bg-red-50 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4" /> حذف

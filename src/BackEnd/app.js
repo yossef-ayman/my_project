@@ -44,6 +44,57 @@ app.get('/students', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+app.post('/students', async (req, res) => {
+  try {
+    const { name, email, stdcode, phone, parentPhone, grade, place, registrationDate, attendanceCount } = req.body;
+
+    // اعمل إنشاء طالب جديد (role ثابت "student")
+    const newStudent = new User({
+      name,
+      email,
+      stdcode,
+      phone,
+      parentPhone,
+      grade,
+      place,
+      registrationDate: registrationDate || new Date().toLocaleDateString("ar-EG"),
+      attendanceCount: attendanceCount || 0,
+      role: "student", // مهم جدًا
+      password: "123456" // ممكن تحط باسورد افتراضي
+    });
+
+    await newStudent.save();
+    res.status(201).json(newStudent);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+// 🔹 Update student
+app.put('/students/:id', async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true } // يرجّع النسخة الجديدة بعد التعديل
+    );
+    if (!updated) return res.status(404).json({ message: "Student not found" });
+    res.status(200).json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
+// 🔹 Delete student
+app.delete('/students/:id', async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Student not found" });
+    res.status(200).json({ message: "Student deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 app.get('/users', async (req, res) => {
     try {
         const users = await User.find({});
@@ -52,6 +103,7 @@ app.get('/users', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 
 app.get('/user/:stdcode', async (req, res) => {
   try {
