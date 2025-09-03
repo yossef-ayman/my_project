@@ -15,7 +15,6 @@ import {
   FileText,
   Settings,
   LogOut,
-  ArrowRightCircle,
 } from "lucide-react"
 
 const LOCALSTORAGE_KEY = "students"
@@ -38,6 +37,11 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
 
   // Fetch data from backend
   useEffect(() => {
+    refreshData()
+  }, [])
+
+  // Function: refresh all data
+  const refreshData = () => {
     fetch("http://localhost:8080/students")
       .then((res) => res.json())
       .then((data) => setStudents(data || []))
@@ -47,12 +51,12 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
       .then((res) => res.json())
       .then((data) => setNews(data || []))
       .catch((err) => console.error(err))
-  }, [])
+  }
 
-  // Statistics
-  const firstGradeCount = students.filter((s) => s.grade?.includes("الأول")).length
-  const secondGradeCount = students.filter((s) => s.grade?.includes("الثاني")).length
-  const thirdGradeCount = students.filter((s) => s.grade?.includes("الثالث")).length
+  // Function: count students by grade
+  const getStudentCountByGrade = (grade) => {
+    return students.filter((s) => s.grade?.includes(grade)).length
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -66,16 +70,6 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
             <span className="font-semibold text-gray-800">لوحة الإدارة</span>
           </div>
           <div className="flex items-center gap-3">
-            {/* زر العودة */}
-            <Button
-              variant="outline"
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 hover:bg-gray-100"
-            >
-              <ArrowRightCircle className="h-4 w-4" />
-              رجوع
-            </Button>
-
             {/* زر تسجيل الخروج */}
             <Button
               variant="outline"
@@ -121,10 +115,12 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
             <CardContent className="p-6 flex justify-between items-center">
               <div>
                 <p className="text-white/80 text-sm">الصف الأول</p>
-                <p className="text-2xl md:text-3xl font-bold">{firstGradeCount}</p>
+                <p className="text-2xl md:text-3xl font-bold">
+                  {getStudentCountByGrade("الأول")}
+                </p>
               </div>
               <Badge variant="outline" className="text-white border-white">
-                {firstGradeCount}
+                {getStudentCountByGrade("الأول")}
               </Badge>
             </CardContent>
           </Card>
@@ -133,10 +129,12 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
             <CardContent className="p-6 flex justify-between items-center">
               <div>
                 <p className="text-white/80 text-sm">الصف الثاني</p>
-                <p className="text-2xl md:text-3xl font-bold">{secondGradeCount}</p>
+                <p className="text-2xl md:text-3xl font-bold">
+                  {getStudentCountByGrade("الثاني")}
+                </p>
               </div>
               <Badge variant="outline" className="text-white border-white">
-                {secondGradeCount}
+                {getStudentCountByGrade("الثاني")}
               </Badge>
             </CardContent>
           </Card>
@@ -145,10 +143,12 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
             <CardContent className="p-6 flex justify-between items-center">
               <div>
                 <p className="text-white/80 text-sm">الصف الثالث</p>
-                <p className="text-2xl md:text-3xl font-bold">{thirdGradeCount}</p>
+                <p className="text-2xl md:text-3xl font-bold">
+                  {getStudentCountByGrade("الثالث")}
+                </p>
               </div>
               <Badge variant="outline" className="text-white border-white">
-                {thirdGradeCount}
+                {getStudentCountByGrade("الثالث")}
               </Badge>
             </CardContent>
           </Card>

@@ -14,6 +14,8 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
   const [quickId, setQuickId] = useState("")
   const [todayAttendance, setTodayAttendance] = useState(new Set())
   const [isScanning, setIsScanning] = useState(false)
+  const [selectedCenter, setSelectedCenter] = useState("")
+  const [selectedGrade, setSelectedGrade] = useState("")
   const [centerName] = useState("مركز أستاذ - فرع المعادي")
   const { toast } = useToast()
   const inputRef = useRef(null)
@@ -35,11 +37,14 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
   }, [todayAttendance, today])
 
   // فلترة الطلاب
-  const filteredStudents = (students || []).filter(
-    (student) =>
-      (student?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (student?.customId || "").toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const filteredStudents = (students || [])
+    .filter(
+      (student) =>
+        (student?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (student?.customId || "").toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .filter((student) => (selectedCenter ? student.center === selectedCenter : true))
+    .filter((student) => (selectedGrade ? student.grade === selectedGrade : true))
 
   const markAttendance = (studentKey) => {
     if (todayAttendance.has(studentKey)) {
@@ -72,7 +77,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
     }
 
     const student = students.find(
-      (s) => (s?.customId || "").toLowerCase() === quickId.toLowerCase().trim(),
+      (s) => (s?.customId || "").toLowerCase() === quickId.toLowerCase().trim()
     )
 
     if (!student) {
@@ -122,14 +127,21 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
   const getGradeText = (grade) => {
     if (grade === "first") return "الأول الثانوي"
     if (grade === "second") return "الثاني الثانوي"
+    if (grade === "third") return "الثالث الثانوي"
     return "غير محدد"
   }
 
-  const attendancePercentage =
-    students.length > 0 ? Math.round((todayAttendance.size / students.length) * 100) : 0
+  // حساب الإحصائيات
+  const totalStudents = filteredStudents.length
+  const presentCount = filteredStudents.filter((s) =>
+    todayAttendance.has(s.id || s.customId)
+  ).length
+  const absentCount = totalStudents - presentCount
+  const absencePercentage = totalStudents > 0 ? Math.round((absentCount / totalStudents) * 100) : 0
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6 min-h-screen p-6 bg-gradient-to-br from-gray-50 to-blue-50" dir="rtl">
+      {/* الهيدر */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
           <ArrowRight className="h-4 w-4" />
@@ -148,64 +160,52 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
             <MapPin className="h-5 w-5" />
             {centerName}
           </CardTitle>
-          <CardDescription className="text-blue-600">نظام تسجيل الحضور الإلكتروني</CardDescription>
+          <CardDescription className="text-blue-600">
+            نظام تسجيل الحضور الإلكتروني
+          </CardDescription>
         </CardHeader>
       </Card>
 
-      {/* إحصائيات اليوم */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="gradient-card-1 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80">إجمالي الطلاب</p>
-                <p className="text-2xl font-bold">{students.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-white/80" />
-            </div>
+      {/* فلترة */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>اختيار السنتر</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <select
+              className="w-full p-2 border rounded-lg"
+              value={selectedCenter}
+              onChange={(e) => setSelectedCenter(e.target.value)}
+            >
+              <option value="">كل السناتر</option>
+              <option value="المعادي">المعادي</option>
+              <option value="حلوان">حلوان</option>
+              <option value="مدينة نصر">مدينة نصر</option>
+            </select>
           </CardContent>
         </Card>
 
-        <Card className="gradient-card-2 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80">حضر اليوم</p>
-                <p className="text-2xl font-bold">{todayAttendance.size}</p>
-              </div>
-              <Check className="h-8 w-8 text-white/80" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="gradient-card-3 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80">نسبة الحضور</p>
-                <p className="text-2xl font-bold">{attendancePercentage}%</p>
-              </div>
-              <Calendar className="h-8 w-8 text-white/80" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="gradient-card-4 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80">الوقت</p>
-                <p className="text-lg font-bold">
-                  {new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-white/80" />
-            </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>اختيار السنة الدراسية</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <select
+              className="w-full p-2 border rounded-lg"
+              value={selectedGrade}
+              onChange={(e) => setSelectedGrade(e.target.value)}
+            >
+              <option value="">كل السنوات</option>
+              <option value="first">الأول الثانوي</option>
+              <option value="second">الثاني الثانوي</option>
+              <option value="third">الثالث الثانوي</option>
+            </select>
           </CardContent>
         </Card>
       </div>
 
-      {/* تسجيل الحضور السريع */}
+      {/* تسجيل سريع + QR */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
           <CardHeader>
@@ -213,21 +213,22 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
               <Hash className="h-5 w-5" />
               تسجيل سريع بالرقم
             </CardTitle>
-            <CardDescription className="text-green-600">أدخل رقم الطالب لتسجيل الحضور</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="أدخل رقم الطالب (مثل: ST001)"
+                placeholder="أدخل رقم الطالب"
                 value={quickId}
                 onChange={(e) => setQuickId(e.target.value.toUpperCase())}
                 onKeyPress={handleKeyPress}
                 className="text-lg font-bold text-center"
-                autoFocus
               />
-              <Button onClick={handleQuickAttendance} className="bg-green-600 hover:bg-green-700">
+              <Button
+                onClick={handleQuickAttendance}
+                className="bg-green-600 hover:bg-green-700"
+              >
                 <Check className="h-4 w-4 ml-2" />
                 تسجيل
               </Button>
@@ -241,7 +242,6 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
               <QrCode className="h-5 w-5" />
               مسح QR Code
             </CardTitle>
-            <CardDescription className="text-purple-600">استخدم كاميرا الهاتف لمسح QR Code</CardDescription>
           </CardHeader>
           <CardContent>
             <Button
@@ -249,17 +249,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
               disabled={isScanning}
               className="w-full bg-purple-600 hover:bg-purple-700"
             >
-              {isScanning ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  جاري المسح...
-                </div>
-              ) : (
-                <>
-                  <QrCode className="h-4 w-4 ml-2" />
-                  بدء المسح
-                </>
-              )}
+              {isScanning ? "جاري المسح..." : "بدء المسح"}
             </Button>
           </CardContent>
         </Card>
@@ -274,14 +264,37 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative">
-            <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="البحث بالاسم أو رقم الطالب..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10"
-            />
+          <Input
+            placeholder="ابحث بالاسم أو رقم الطالب..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </CardContent>
+      </Card>
+
+      {/* إحصائيات */}
+      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            📊 إحصائيات الغياب
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-3 bg-white rounded-lg shadow text-center">
+            <p className="text-sm text-gray-500">إجمالي الطلاب</p>
+            <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
+          </div>
+          <div className="p-3 bg-white rounded-lg shadow text-center">
+            <p className="text-sm text-gray-500">حاضر ✅</p>
+            <p className="text-xl font-bold text-green-600">{presentCount}</p>
+          </div>
+          <div className="p-3 bg-white rounded-lg shadow text-center">
+            <p className="text-sm text-gray-500">غائب ❌</p>
+            <p className="text-xl font-bold text-red-600">{absentCount}</p>
+          </div>
+          <div className="p-3 bg-white rounded-lg shadow text-center">
+            <p className="text-sm text-gray-500">نسبة الغياب</p>
+            <p className="text-xl font-bold text-purple-700">{absencePercentage}%</p>
           </div>
         </CardContent>
       </Card>
@@ -290,12 +303,12 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
       <Card>
         <CardHeader>
           <CardTitle>قائمة الطلاب</CardTitle>
-          <CardDescription>انقر على "تسجيل الحضور" لتسجيل حضور الطالب</CardDescription>
+          <CardDescription>اضغط على "تسجيل الحضور" لتسجيل الطالب</CardDescription>
         </CardHeader>
         <CardContent>
           {filteredStudents.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              {searchTerm ? "لا توجد نتائج للبحث" : "لا يوجد طلاب مسجلين"}
+              {searchTerm ? "لا توجد نتائج" : "لا يوجد طلاب"}
             </p>
           ) : (
             <div className="space-y-4">
@@ -324,21 +337,18 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
                             )}
                           </div>
                           <div>
-                            <h3 className="font-semibold text-lg">{student?.name || "طالب مجهول"}</h3>
+                            <h3 className="font-semibold text-lg">
+                              {student?.name || "طالب مجهول"}
+                            </h3>
                             <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
                               <span>رقم: {student?.customId || "??"}</span>
                               <span>{getGradeText(student?.grade)}</span>
+                              <span>السنتر: {student?.center || "-"}</span>
                               <span>الحضور: {student?.attendanceCount || 0} مرة</span>
-                              {student?.attendanceHistory && student.attendanceHistory.length > 0 && (
-                                <span>
-                                  آخر حضور:{" "}
-                                  {student.attendanceHistory[student.attendanceHistory.length - 1]?.date || "-"}
-                                </span>
-                              )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div>
                           {isPresent ? (
                             <Badge className="bg-green-500 text-white">
                               <Check className="h-3 w-3 ml-1" />

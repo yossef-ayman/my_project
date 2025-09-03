@@ -13,6 +13,8 @@ import { useToast } from "../../hooks/use-toast"
 
 const AwardsManager = () => {
   const navigate = useNavigate()
+  const { toast } = useToast()
+
   const [awards, setAwards] = useState([
     {
       id: "1",
@@ -25,6 +27,7 @@ const AwardsManager = () => {
   ])
 
   const [showAddForm, setShowAddForm] = useState(false)
+  const [editingAward, setEditingAward] = useState(null)
   const [newAward, setNewAward] = useState({
     studentName: "",
     title: "",
@@ -32,8 +35,39 @@ const AwardsManager = () => {
     type: "تفوق",
   })
 
-  const { toast } = useToast()
+  // أيقونات حسب النوع
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case "تفوق":
+        return <Trophy className="h-5 w-5" />
+      case "حضور":
+        return <Star className="h-5 w-5" />
+      case "سلوك":
+        return <Medal className="h-5 w-5" />
+      case "مشاركة":
+        return <Award className="h-5 w-5" />
+      default:
+        return <Award className="h-5 w-5" />
+    }
+  }
 
+  // ألوان حسب النوع
+  const getTypeColor = (type) => {
+    switch (type) {
+      case "تفوق":
+        return "from-yellow-400 to-yellow-600"
+      case "حضور":
+        return "from-green-400 to-green-600"
+      case "سلوك":
+        return "from-blue-400 to-blue-600"
+      case "مشاركة":
+        return "from-purple-400 to-purple-600"
+      default:
+        return "from-gray-400 to-gray-600"
+    }
+  }
+
+  // إضافة تكريم جديد
   const handleAddAward = () => {
     if (!newAward.studentName || !newAward.title) {
       toast({
@@ -63,70 +97,85 @@ const AwardsManager = () => {
     setShowAddForm(false)
   }
 
+  // حذف تكريم
   const handleDeleteAward = (id) => {
     setAwards(awards.filter((award) => award.id !== id))
     toast({ title: "تم الحذف", description: "تم حذف التكريم بنجاح", variant: "destructive" })
   }
 
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case "تفوق":
-        return <Trophy className="h-4 w-4" />
-      case "حضور":
-        return <Star className="h-4 w-4" />
-      case "سلوك":
-        return <Medal className="h-4 w-4" />
-      case "مشاركة":
-        return <Award className="h-4 w-4" />
-      default:
-        return <Award className="h-4 w-4" />
-    }
+  // فتح نموذج التعديل
+  const handleEditAward = (award) => {
+    setEditingAward(award)
+    setNewAward({
+      studentName: award.studentName,
+      title: award.title,
+      description: award.description,
+      type: award.type,
+    })
+    setShowAddForm(true)
   }
 
-  const getTypeColor = (type) => {
-    switch (type) {
-      case "تفوق":
-        return "bg-yellow-500"
-      case "حضور":
-        return "bg-green-500"
-      case "سلوك":
-        return "bg-blue-500"
-      case "مشاركة":
-        return "bg-purple-500"
-      default:
-        return "bg-gray-500"
+  // حفظ التعديل
+  const handleSaveEdit = () => {
+    if (!newAward.studentName || !newAward.title) {
+      toast({
+        title: "خطأ",
+        description: "يرجى ملء اسم الطالب وعنوان التكريم",
+        variant: "destructive",
+      })
+      return
     }
+
+    setAwards(
+      awards.map((award) =>
+        award.id === editingAward.id
+          ? { ...award, ...newAward }
+          : award
+      )
+    )
+
+    toast({
+      title: "تم تعديل التكريم",
+      description: `تم تحديث بيانات ${newAward.studentName} بنجاح`,
+    })
+
+    setNewAward({ studentName: "", title: "", description: "", type: "تفوق" })
+    setEditingAward(null)
+    setShowAddForm(false)
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
-            <ArrowRight className="h-4 w-4" />
-            العودة
+    <div className="min-h-screen p-6 space-y-6" style={{ background: "#f0f2f5" }} dir="rtl">
+      {/* فريم الهيدر */}
+      <Card className="p-4 shadow-md rounded-2xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
+              <ArrowRight className="h-4 w-4" />
+              العودة
+            </Button>
+            <h1 className="text-3xl font-extrabold text-gray-900">إدارة التكريمات</h1>
+          </div>
+          <Button
+            onClick={() => { setEditingAward(null); setShowAddForm(true); }}
+            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+          >
+            <Plus className="h-4 w-4 ml-2" />
+            إضافة تكريم جديد
           </Button>
-          <h1 className="text-2xl font-bold">إدارة التكريمات</h1>
         </div>
-        <Button
-          onClick={() => setShowAddForm(true)}
-          className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-        >
-          <Plus className="h-4 w-4 ml-2" />
-          إضافة تكريم جديد
-        </Button>
-      </div>
+      </Card>
 
-      {/* نموذج إضافة تكريم */}
+      {/* فريم نموذج إضافة / تعديل التكريم */}
       {showAddForm && (
-        <Card className="animate-fadeIn border-yellow-200 bg-yellow-50">
+        <Card className="animate-fadeIn border border-yellow-200 bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 p-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-yellow-800">
               <Award className="h-5 w-5" />
-              إضافة تكريم جديد
+              {editingAward ? "تعديل التكريم" : "إضافة تكريم جديد"}
             </CardTitle>
             <CardDescription className="text-yellow-600">
-              أضف تكريماً جديداً لأحد الطلاب المتميزين
+              {editingAward ? "قم بتعديل بيانات التكريم" : "أضف تكريماً جديداً لأحد الطلاب المتميزين"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -178,10 +227,13 @@ const AwardsManager = () => {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleAddAward} className="bg-yellow-600 hover:bg-yellow-700">
-                إضافة التكريم
+              <Button
+                onClick={editingAward ? handleSaveEdit : handleAddAward}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                {editingAward ? "حفظ التعديل" : "إضافة التكريم"}
               </Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)}>
+              <Button variant="outline" onClick={() => { setShowAddForm(false); setEditingAward(null); }}>
                 إلغاء
               </Button>
             </div>
@@ -189,48 +241,50 @@ const AwardsManager = () => {
         </Card>
       )}
 
-      {/* قائمة التكريمات */}
-      <div className="grid gap-4">
+      {/* فريم قائمة التكريمات */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {awards.map((award) => (
           <Card
             key={award.id}
-            className="animate-fadeIn hover:shadow-lg transition-all duration-300 border-l-4 border-l-yellow-400"
+            className={`animate-fadeIn rounded-2xl shadow-lg hover:shadow-2xl transform transition-transform duration-300 border-l-4 border-l-yellow-400`}
           >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`p-2 rounded-full ${getTypeColor(award.type)} text-white`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`p-3 rounded-full bg-gradient-to-br ${getTypeColor(award.type)} text-white shadow-md`}>
                       {getTypeIcon(award.type)}
                     </div>
                     <div>
-                      <CardTitle className="text-lg">{award.studentName}</CardTitle>
+                      <CardTitle className="text-xl font-bold text-gray-900">{award.studentName}</CardTitle>
                       <CardDescription className="font-semibold text-yellow-700">{award.title}</CardDescription>
                     </div>
                   </div>
-                  {award.description && <p className="text-muted-foreground mt-2">{award.description}</p>}
+                  {award.description && <p className="text-gray-600 mt-2">{award.description}</p>}
                 </div>
-                <Badge className={`${getTypeColor(award.type)} text-white`}>{award.type}</Badge>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge className={`bg-gradient-to-r ${getTypeColor(award.type)} text-white font-bold shadow-md`}>
+                    {award.type}
+                  </Badge>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleEditAward(award)}>
+                      تعديل
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 bg-transparent"
+                      onClick={() => handleDeleteAward(award.id)}
+                    >
+                      حذف
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  تاريخ التكريم: {new Date(award.date).toLocaleDateString("ar-EG")}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline">
-                    تعديل
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700 bg-transparent"
-                    onClick={() => handleDeleteAward(award.id)}
-                  >
-                    حذف
-                  </Button>
-                </div>
+              <div className="text-sm text-gray-500">
+                تاريخ التكريم: {new Date(award.date).toLocaleDateString("ar-EG")}
               </div>
             </CardContent>
           </Card>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import Login from "./components/Login"
-import AdminDashboard from "./components/AdminDashboard"
+import AdminDashboard from "./components/admin/AdminDashboard"
 import StudentPortal from "./components/StudentPortal"
 import { Toaster } from "./components/ui/toaster"
 

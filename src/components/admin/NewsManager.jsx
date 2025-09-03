@@ -26,7 +26,7 @@ const NewsManager = ({ onBack }) => {
 
   const [news, setNews] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newNews, setNewNews] = useState({ title: "", content: "", priority: "medium", image: null })
+  const [newNews, setNewNews] = useState({ title: "", content: "", priority: "medium", image: null, imagePreview: null })
   const [editingNews, setEditingNews] = useState(null)
 
   useEffect(() => {
@@ -43,12 +43,12 @@ const NewsManager = ({ onBack }) => {
     load()
   }, [toast])
 
-  // باقي الدوال (رفع صورة، إضافة، تعديل، حذف) — احتفظت بهم كما هم
   const handleImageUpload = (e, isEdit = false) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (isEdit) setEditingNews({ ...editingNews, image: file })
-      else setNewNews({ ...newNews, image: file })
+      const preview = URL.createObjectURL(file)
+      if (isEdit) setEditingNews({ ...editingNews, image: file, imagePreview: preview })
+      else setNewNews({ ...newNews, image: file, imagePreview: preview })
     }
   }
 
@@ -69,7 +69,7 @@ const NewsManager = ({ onBack }) => {
       if (!res.ok) throw new Error("فشل النشر")
       const data = await res.json()
       setNews((prev) => [data, ...prev])
-      setNewNews({ title: "", content: "", priority: "medium", image: null })
+      setNewNews({ title: "", content: "", priority: "medium", image: null, imagePreview: null })
       setShowAddForm(false)
       toast({ title: "تم", description: "تم نشر الخبر بنجاح ✅" })
     } catch (err) {
@@ -121,8 +121,8 @@ const NewsManager = ({ onBack }) => {
   }
 
   return (
-    <div className="space-y-6 p-4" dir="rtl">
-      <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg shadow-sm">
+    <div className="space-y-6 p-4" dir="rtl" style={{ background: "linear-gradient(to bottom, #f9f9f9, #e5e7eb)" }}>
+      <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-md">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleBack}>
             <ArrowRight className="h-4 w-4 ml-1" />
@@ -130,15 +130,14 @@ const NewsManager = ({ onBack }) => {
           </Button>
           <h1 className="text-xl font-bold text-gray-800">📢 إدارة الأخبار</h1>
         </div>
-        <Button onClick={() => setShowAddForm(true)} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+        <Button onClick={() => setShowAddForm(true)} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg">
           <Plus className="h-4 w-4 ml-2" />
           إضافة خبر
         </Button>
       </div>
 
-      {/* باقي الواجهة كما كانت */}
       {(showAddForm || editingNews) && (
-        <Card className="animate-fadeIn border-blue-200 bg-blue-50">
+        <Card className="animate-fadeIn border-blue-300 bg-blue-50 rounded-2xl shadow-lg p-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-800">
               {editingNews ? "✏️ تعديل خبر" : <><Newspaper className="h-5 w-5" /> إضافة خبر جديد</>}
@@ -158,8 +157,11 @@ const NewsManager = ({ onBack }) => {
             </select>
             <Label>الصورة</Label>
             <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, !!editingNews)} />
+            {(editingNews?.imagePreview || newNews.imagePreview) && (
+              <img src={editingNews?.imagePreview || newNews.imagePreview} alt="preview" className="w-full h-auto rounded-md border mt-2 shadow-sm" />
+            )}
             <div className="flex gap-2 pt-4">
-              <Button onClick={editingNews ? handleUpdateNews : handleAddNews} className="bg-blue-600 hover:bg-blue-700 text-white">{editingNews ? "حفظ التعديلات" : "نشر"}</Button>
+              <Button onClick={editingNews ? handleUpdateNews : handleAddNews} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">{editingNews ? "حفظ التعديلات" : "نشر"}</Button>
               <Button variant="outline" onClick={() => { setShowAddForm(false); setEditingNews(null) }}>إلغاء</Button>
             </div>
           </CardContent>
@@ -168,28 +170,28 @@ const NewsManager = ({ onBack }) => {
 
       <div className="grid gap-4">
         {news.map((item) => (
-          <Card key={item._id}>
+          <Card key={item._id} className="rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 border-l-4 border-blue-500">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle>{item.title}</CardTitle>
-                  <CardDescription>{item.content}</CardDescription>
+                  <CardDescription className="text-gray-700">{item.content}</CardDescription>
                 </div>
-                <Badge className={`${getPriorityColor(item.priority)} text-white`}>
+                <Badge className={`${getPriorityColor(item.priority)} text-white px-2 py-1 rounded-md shadow-sm`}>
                   {item.priority === "low" ? "عادي" : item.priority === "medium" ? "مهم" : "عاجل"}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              {item.imageUrl && <div className="mb-3"><img src={item.imageUrl} alt={item.title} className="w-full h-auto rounded-md border" /></div>}
+              {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="w-full h-auto rounded-md border mb-3 shadow-sm" />}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Calendar className="h-4 w-4" />
-                  {item.date ? new Date(item.date).toLocaleDateString("ar-EG") : "—"}
+                  {item.date ? new Date(item.date).toLocaleString("ar-EG") : "—"}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="text-blue-600" onClick={() => setEditingNews(item)}>تعديل</Button>
-                  <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDelete(item._id)}>حذف</Button>
+                  <Button size="sm" variant="outline" className="text-blue-600 shadow-sm" onClick={() => setEditingNews(item)}>تعديل</Button>
+                  <Button size="sm" variant="outline" className="text-red-600 shadow-sm" onClick={() => handleDelete(item._id)}>حذف</Button>
                 </div>
               </div>
             </CardContent>
