@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
@@ -13,6 +14,7 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -21,16 +23,20 @@ const Login = ({ onLogin }) => {
     try {
       const res = await fetch("http://localhost:8080/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await res.json()
+      // التعامل مع الخطأ لو السيرفر مش بيرجع JSON
+      const text = await res.text()
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = { message: text }
+      }
 
       if (res.ok) {
-        // حفظ البيانات
         onLogin({
           email: data.user.email,
           name: data.user.name,
@@ -44,11 +50,8 @@ const Login = ({ onLogin }) => {
         })
 
         // التوجيه بناءً على الدور
-        if (data.user.role === "admin") {
-          window.location.href = "/admin"
-        } else {
-          window.location.href = "/student"
-        }
+        if (data.user.role === "admin") navigate("/admin")
+        else navigate("/student")
       } else {
         toast({
           title: "خطأ في تسجيل الدخول",
@@ -71,19 +74,17 @@ const Login = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* شعار وعنوان */}
         <div className="text-center space-y-4">
           <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto animate-glow">
             <GraduationCap className="h-10 w-10 text-white animate-wiggle" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gradient text-glow">أستاذ </h1>
+            <h1 className="text-3xl font-bold text-gradient text-glow">أستاذ</h1>
             <h2 className="text-2xl font-bold text-purple-800">الاستاذ</h2>
             <p className="text-gray-600 mt-2">نظام إدارة الحضور الإلكتروني</p>
           </div>
         </div>
 
-        {/* نموذج تسجيل الدخول */}
         <Card className="border-gradient bg-white/80 backdrop-blur-sm animate-slideInUp">
           <CardHeader className="text-center">
             <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
@@ -147,7 +148,6 @@ const Login = ({ onLogin }) => {
           </CardContent>
         </Card>
 
-        {/* معلومات التواصل */}
         <div className="text-center text-sm text-gray-600 space-y-2">
           <p>للدعم الفني: 01002470826</p>
           <p>© 2024 الاستاذ - جميع الحقوق محفوظة</p>

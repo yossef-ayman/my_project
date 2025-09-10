@@ -72,13 +72,18 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           <div className="flex items-center gap-3">
             {/* زر تسجيل الخروج */}
             <Button
-              variant="outline"
-              onClick={onLogout}
-              className="flex items-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-transparent"
-            >
-              <LogOut className="h-4 w-4" />
-              تسجيل الخروج
-            </Button>
+  variant="outline"
+  onClick={() => {
+    // إزالة بيانات الجلسة فقط بدون مسح localStorage كله
+    localStorage.removeItem("authToken"); // لو عندك توكن تسجيل الدخول
+    navigate("/login"); // تحويل المستخدم لصفحة تسجيل الدخول
+  }}
+  className="flex items-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-transparent"
+>
+  <LogOut className="h-4 w-4" />
+  تسجيل الخروج
+</Button>
+
           </div>
         </div>
       </div>

@@ -1,168 +1,162 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
-import Login from "./components/Login"
-import AdminDashboard from "./components/AdminDashboard"
-import StudentPortal from "./components/StudentPortal"
-import { Toaster } from "./components/ui/toaster"
+import { useState } from "react"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
+import { Input } from "./ui/input"
+import { Label } from "./ui/label"
+import { LogIn, User, Lock, GraduationCap } from "lucide-react"
+import { useToast } from "../hooks/use-toast"
+import { useNavigate } from "react-router-dom"
 
-function App() {
-  const [user, setUser] = useState(null)
-  const [students, setStudents] = useState([])
-  const [availableLocations, setAvailableLocations] = useState(["القاعة الرئيسية", "المعمل"])
-  const [availableDays, setAvailableDays] = useState(["السبت", "الأحد", "الاثنين", "الثلاثاء"])
+const Login = ({ onLogin }) => {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem("currentUser")
-    const savedStudents = localStorage.getItem("students")
-    const savedLocations = localStorage.getItem("availableLocations")
-    const savedDays = localStorage.getItem("availableDays")
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsLoading(true)
 
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
-    if (savedStudents) {
-      setStudents(JSON.parse(savedStudents))
-    }
-    if (savedLocations) {
-      setAvailableLocations(JSON.parse(savedLocations))
-    }
-    if (savedDays) {
-      setAvailableDays(JSON.parse(savedDays))
-    }
-  }, [])
+    try {
+      const res = await fetch("http://localhost:8080/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-  useEffect(() => {
-    localStorage.setItem("students", JSON.stringify(students))
-  }, [students])
+      const data = await res.json()
 
-  useEffect(() => {
-    localStorage.setItem("availableLocations", JSON.stringify(availableLocations))
-  }, [availableLocations])
+      if (res.ok) {
+        // حفظ البيانات
+        onLogin({
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role,
+          token: data.token,
+        })
 
-  useEffect(() => {
-    localStorage.setItem("availableDays", JSON.stringify(availableDays))
-  }, [availableDays])
+        toast({
+          title: "تم تسجيل الدخول بنجاح",
+          description: `مرحباً بك ${data.user.name}`,
+        })
 
-  const handleLogin = (userData) => {
-    setUser(userData)
-    localStorage.setItem("currentUser", JSON.stringify(userData))
-  }
-
-  const handleLogout = () => {
-    setUser(null)
-    localStorage.removeItem("currentUser")
-  }
-
-  const addStudent = (student) => {
-    const newStudent = {
-      ...student,
-      id: Date.now().toString(),
-      attendanceCount: 0,
-      attendanceHistory: [],
-      weeklyAttendance: {},
-    }
-    setStudents((prev) => [...prev, newStudent])
-  }
-
-  const removeStudent = (id) => {
-    setStudents((prev) => prev.filter((student) => student.id !== id))
-  }
-
-  const markAttendance = (studentId, location) => {
-    const now = new Date()
-    const currentWeek = getWeekKey(now)
-
-    setStudents((prev) =>
-      prev.map((student) => {
-        if (student.id === studentId) {
-          if (student.weeklyAttendance[currentWeek]) {
-            return student
-          }
-
-          const attendanceRecord = {
-            date: now.toLocaleDateString("ar-EG"),
-            location,
-            time: now.toLocaleTimeString("ar-EG"),
-          }
-
-          return {
-            ...student,
-            attendanceCount: student.attendanceCount + 1,
-            attendanceHistory: [...(student.attendanceHistory || []), attendanceRecord],
-            weeklyAttendance: {
-              ...student.weeklyAttendance,
-              [currentWeek]: true,
-            },
-          }
+        // التوجيه بناءً على الدور
+        if (data.user.role === "admin") {
+          navigate("/admin", { replace: true })
+        } else {
+          navigate("/student", { replace: true })
         }
-        return student
-      }),
-    )
-  }
-
-  const getWeekKey = (date) => {
-    const year = date.getFullYear()
-    const week = Math.ceil(((date.getTime() - new Date(year, 0, 1).getTime()) / 86400000 + 1) / 7)
-    return `${year}-W${week}`
+      } else {
+        toast({
+          title: "خطأ في تسجيل الدخول",
+          description: data.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      toast({
+        title: "حدث خطأ",
+        description: "فشل الاتصال بالخادم",
+        variant: "destructive",
+      })
+      console.error("Login error:", err)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              user ? (
-                <Navigate to={user.role === "admin" ? "/admin" : "/student"} replace />
-              ) : (
-                <Login onLogin={handleLogin} />
-              )
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              user && user.role === "admin" ? (
-                <AdminDashboard
-                  user={user}
-                  onLogout={handleLogout}
-                  students={students}
-                  onAddStudent={addStudent}
-                  onRemoveStudent={removeStudent}
-                  onMarkAttendance={markAttendance}
-                  availableLocations={availableLocations}
-                  onUpdateLocations={setAvailableLocations}
-                  availableDays={availableDays}
-                  onUpdateDays={setAvailableDays}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        {/* شعار وعنوان */}
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto animate-glow">
+            <GraduationCap className="h-10 w-10 text-white animate-wiggle" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gradient text-glow">أستاذ </h1>
+            <h2 className="text-2xl font-bold text-purple-800">الاستاذ</h2>
+            <p className="text-gray-600 mt-2">نظام إدارة الحضور الإلكتروني</p>
+          </div>
+        </div>
+
+        {/* نموذج تسجيل الدخول */}
+        <Card className="border-gradient bg-white/80 backdrop-blur-sm animate-slideInUp">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
+              <LogIn className="h-5 w-5" />
+              تسجيل الدخول
+            </CardTitle>
+            <CardDescription>أدخل بياناتك للوصول إلى النظام</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  البريد الإلكتروني
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="أدخل بريدك الإلكتروني"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="text-right"
                 />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/student"
-            element={
-              user && user.role === "student" ? (
-                <StudentPortal
-                  user={user}
-                  onLogout={handleLogout}
-                  student={students.find((s) => s.name === user.name)}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  كلمة المرور
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="أدخل كلمة المرور"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="text-right"
                 />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-        </Routes>
-        <Toaster />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    جاري تسجيل الدخول...
+                  </div>
+                ) : (
+                  <>
+                    <LogIn className="h-4 w-4 ml-2" />
+                    تسجيل الدخول
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* معلومات التواصل */}
+        <div className="text-center text-sm text-gray-600 space-y-2">
+          <p>للدعم الفني: 01002470826</p>
+          <p>© 2024 الاستاذ - جميع الحقوق محفوظة</p>
+        </div>
       </div>
-    </Router>
+    </div>
   )
 }
 
-export default App
+export default Login

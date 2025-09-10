@@ -24,14 +24,25 @@ import {
 } from "lucide-react"
 import ExamInterface from "./student/ExamInterface"
 
-const StudentPortal = ({ user, onLogout, student }) => {
+const StudentPortal = ({ user = {}, onLogout = () => {}, student = {} }) => {
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedExam, setSelectedExam] = useState(null)
   const [examResults, setExamResults] = useState([])
   const [qrGenerated, setQrGenerated] = useState(false)
   const [news, setNews] = useState([])
   const [showAllNews, setShowAllNews] = useState(false)
- const exams = [
+
+  // load saved exam results on mount
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("examResults") || "[]")
+      setExamResults(Array.isArray(saved) ? saved : [])
+    } catch (err) {
+      console.error("Error reading examResults from localStorage:", err)
+    }
+  }, [])
+
+  const exams = [
     {
       id: "1",
       title: "امتحان الرياضيات - الوحدة الأولى",
@@ -57,12 +68,10 @@ const StudentPortal = ({ user, onLogout, student }) => {
     },
   ]
 
-
-
   const awards = [
     {
       id: "1",
-      studentName: user.name,
+      studentName: user?.name || "طالب",
       title: "الطالب المتفوق",
       description: "حصل على أعلى الدرجات في امتحان الرياضيات",
       date: "2024-01-20",
@@ -140,18 +149,19 @@ const StudentPortal = ({ user, onLogout, student }) => {
       />
     )
   }
+
   useEffect(() => {
-  const fetchNews = async () => {
-    try {
-      const res = await fetch("http://localhost:8080/news")
-      const data = await res.json()
-      setNews(data || [])
-    } catch (err) {
-      console.error("خطأ تحميل الأخبار:", err)
+    const fetchNews = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/news")
+        const data = await res.json()
+        setNews(data || [])
+      } catch (err) {
+        console.error("خطأ تحميل الأخبار:", err)
+      }
     }
-  }
-  fetchNews()
-}, [])
+    fetchNews()
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -165,13 +175,18 @@ const StudentPortal = ({ user, onLogout, student }) => {
             <span className="font-semibold">بوابة الطالب</span>
           </div>
           <Button
-            variant="outline"
-            onClick={onLogout}
-            className="flex items-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-transparent"
-          >
-            <LogOut className="h-4 w-4" />
-            تسجيل الخروج
-          </Button>
+  variant="outline"
+  onClick={() => {
+    localStorage.removeItem("user")
+    localStorage.removeItem("examResults")
+    window.location.href = "/" // العودة للـ Login page
+  }}
+  className="flex items-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-transparent"
+>
+  <LogOut className="h-4 w-4" />
+  تسجيل الخروج
+</Button>
+
         </div>
       </div>
 
@@ -184,7 +199,7 @@ const StudentPortal = ({ user, onLogout, student }) => {
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center animate-glow">
                   <User className="h-6 w-6 text-white animate-wiggle" />
                 </div>
-                مرحباً {user.name}
+                مرحباً {user?.name || "طالب"}
               </CardTitle>
               <CardDescription className="text-purple-600 font-semibold">
                 أهلاً بك في منصة أستاذ الاستاذ - فرع المعادي
@@ -336,7 +351,7 @@ const StudentPortal = ({ user, onLogout, student }) => {
                               <div className="flex items-center gap-2 mt-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm text-muted-foreground">
-                                  {new Date(item.date).toLocaleDateString("ar-EG")}
+                                  {item.date ? new Date(item.date).toLocaleDateString("ar-EG") : ""}
                                 </span>
                               </div>
                             </div>
@@ -379,12 +394,12 @@ const StudentPortal = ({ user, onLogout, student }) => {
               <CardDescription>التكريمات والجوائز التي حصلت عليها</CardDescription>
             </CardHeader>
             <CardContent>
-              {awards.filter((award) => award.studentName === user.name).length === 0 ? (
+              {awards.filter((award) => award.studentName === (user?.name || "")).length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">لم تحصل على أي تكريمات بعد</p>
               ) : (
                 <div className="space-y-4">
                   {awards
-                    .filter((award) => award.studentName === user.name)
+                    .filter((award) => award.studentName === (user?.name || ""))
                     .map((award) => (
                       <Card
                         key={award.id}
@@ -401,7 +416,7 @@ const StudentPortal = ({ user, onLogout, student }) => {
                               <div className="flex items-center gap-2 mt-2">
                                 <Star className="h-4 w-4 text-yellow-600" />
                                 <span className="text-sm text-yellow-600">
-                                  {new Date(award.date).toLocaleDateString("ar-EG")}
+                                  {award.date ? new Date(award.date).toLocaleDateString("ar-EG") : ""}
                                 </span>
                               </div>
                             </div>
