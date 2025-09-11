@@ -10,13 +10,13 @@ import { Label } from "../ui/label"
 import { Textarea } from "../ui/textarea"
 import { Badge } from "../ui/badge"
 import { ArrowRight, Plus, Newspaper, Calendar } from "lucide-react"
-import { useToast } from "../../hooks/use-toast"
+import { ToastContainer, toast, Bounce } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
 const API_URL = "http://localhost:8080/news"
 
 const NewsManager = ({ onBack }) => {
   const navigate = useNavigate()
-  const { toast } = useToast()
 
   const handleBack = () => {
     if (typeof onBack === "function") return onBack()
@@ -37,11 +37,11 @@ const NewsManager = ({ onBack }) => {
         const data = await res.json()
         setNews(data)
       } catch (err) {
-        toast({ title: "خطأ", description: err.message, variant: "destructive" })
+        toast.error(err.message, { position: "top-right", theme: "colored", transition: Bounce })
       }
     }
     load()
-  }, [toast])
+  }, [])
 
   const handleImageUpload = (e, isEdit = false) => {
     const file = e.target.files?.[0]
@@ -54,7 +54,7 @@ const NewsManager = ({ onBack }) => {
 
   const handleAddNews = async () => {
     if (!newNews.title || !newNews.content) {
-      toast({ title: "خطأ", description: "يرجى إدخال العنوان والمحتوى", variant: "destructive" })
+      toast.error("يرجى إدخال العنوان والمحتوى", { position: "top-right", theme: "colored", transition: Bounce })
       return
     }
     try {
@@ -71,15 +71,15 @@ const NewsManager = ({ onBack }) => {
       setNews((prev) => [data, ...prev])
       setNewNews({ title: "", content: "", priority: "medium", image: null, imagePreview: null })
       setShowAddForm(false)
-      toast({ title: "تم", description: "تم نشر الخبر بنجاح ✅" })
+      toast.success("تم نشر الخبر بنجاح ✅", { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" })
+      toast.error(err.message, { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
   const handleUpdateNews = async () => {
     if (!editingNews.title || !editingNews.content) {
-      toast({ title: "خطأ", description: "يرجى إدخال العنوان والمحتوى", variant: "destructive" })
+      toast.error("يرجى إدخال العنوان والمحتوى", { position: "top-right", theme: "colored", transition: Bounce })
       return
     }
     try {
@@ -94,9 +94,9 @@ const NewsManager = ({ onBack }) => {
       const data = await res.json()
       setNews((prev) => prev.map((n) => (n._id === data.news._id ? data.news : n)))
       setEditingNews(null)
-      toast({ title: "تم", description: "تم تعديل الخبر بنجاح ✅" })
+      toast.success("تم تعديل الخبر بنجاح ✅", { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" })
+      toast.error(err.message, { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
@@ -105,9 +105,9 @@ const NewsManager = ({ onBack }) => {
       const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("فشل الحذف")
       setNews((prev) => prev.filter((n) => n._id !== id))
-      toast({ title: "تم", description: "تم حذف الخبر بنجاح" })
+      toast.success("تم حذف الخبر بنجاح 🗑️", { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" })
+      toast.error(err.message, { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
@@ -122,7 +122,8 @@ const NewsManager = ({ onBack }) => {
 
   return (
     <div className="space-y-6 p-4" dir="rtl" style={{ background: "linear-gradient(to bottom, #f9f9f9, #e5e7eb)" }}>
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-md">
+      <ToastContainer />
+  <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-md">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleBack}>
             <ArrowRight className="h-4 w-4 ml-1" />

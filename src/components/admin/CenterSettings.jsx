@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { ArrowRight, MapPin, Plus, X } from "lucide-react"
-import { useToast } from "../../hooks/use-toast"
 import { Badge } from "../ui/badge"
+import { ToastContainer, toast, Bounce } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
 const API_URL = "http://localhost:8080/places"
 
@@ -22,7 +23,6 @@ const CenterSettings = ({ onBack }) => {
     return navigate("/admin")
   }
 
-  const { toast } = useToast()
   const [places, setPlaces] = useState([])
   const [newName, setNewName] = useState("")
   const [newLocation, setNewLocation] = useState("")
@@ -36,13 +36,15 @@ const CenterSettings = ({ onBack }) => {
     fetch(API_URL)
       .then((res) => res.json())
       .then((data) => setPlaces(data))
-      .catch(() => toast({ title: "خطأ", description: "فشل تحميل الأماكن", variant: "destructive" }))
+      .catch(() =>
+        toast.error("فشل تحميل الأماكن", { position: "top-right", theme: "colored", transition: Bounce })
+      )
   }, [])
 
   // إضافة مكان
   const addPlace = async () => {
     if (!newName || !newLocation || !newFrom || !newTo || !newGrade || newDays.length === 0) {
-      toast({ title: "خطأ", description: "يرجى إدخال كل البيانات", variant: "destructive" })
+      toast.error("يرجى إدخال كل البيانات", { position: "top-right", theme: "colored", transition: Bounce })
       return
     }
 
@@ -62,9 +64,9 @@ const CenterSettings = ({ onBack }) => {
       setNewTo("")
       setNewGrade("")
       setNewDays([])
-      toast({ title: "تم الإضافة", description: `تمت إضافة المكان: ${data.name}` })
+      toast.success(`تمت إضافة المكان: ${data.name}`, { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: "تعذر إضافة المكان", variant: "destructive" })
+      toast.error("تعذر إضافة المكان", { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
@@ -73,9 +75,9 @@ const CenterSettings = ({ onBack }) => {
     try {
       await fetch(`${API_URL}/${id}`, { method: "DELETE" })
       setPlaces(places.filter((p) => p._id !== id))
-      toast({ title: "تم الحذف", description: "تم حذف المكان بنجاح" })
+      toast.success("تم حذف المكان بنجاح 🗑️", { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: "تعذر حذف المكان", variant: "destructive" })
+      toast.error("تعذر حذف المكان", { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
@@ -88,6 +90,7 @@ const CenterSettings = ({ onBack }) => {
 
   return (
     <div className="space-y-6" dir="rtl">
+      <ToastContainer />
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={handleBack}>
           <ArrowRight className="h-4 w-4" />

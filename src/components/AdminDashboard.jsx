@@ -22,6 +22,7 @@ const LOCALSTORAGE_KEY = "students"
 const AdminDashboard = ({ user, onLogout, availableLocations }) => {
   const [students, setStudents] = useState([])
   const [news, setNews] = useState([])
+  const [places, setPlaces] = useState([])
   const navigate = useNavigate()
 
   // Load students from localStorage
@@ -50,6 +51,11 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
     fetch("http://localhost:8080/news")
       .then((res) => res.json())
       .then((data) => setNews(data || []))
+      .catch((err) => console.error(err))
+
+    fetch("http://localhost:8080/places")
+      .then((res) => res.json())
+      .then((data) => setPlaces(data || []))
       .catch((err) => console.error(err))
   }
 
@@ -262,9 +268,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-700">
-                  {availableLocations?.length || 0}
-                </div>
+                <p className="text-2xl md:text-3xl font-bold">{places.length}</p>
                 <p className="text-sm text-gray-600">مكان متاح</p>
               </CardContent>
             </Card>

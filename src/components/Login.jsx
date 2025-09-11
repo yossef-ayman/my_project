@@ -2,18 +2,17 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { toast, Bounce } from "react-toastify"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { LogIn, User, Lock, GraduationCap } from "lucide-react"
-import { useToast } from "../hooks/use-toast"
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -27,13 +26,11 @@ const Login = ({ onLogin }) => {
         body: JSON.stringify({ email, password }),
       })
 
-      // التعامل مع الخطأ لو السيرفر مش بيرجع JSON
-      const text = await res.text()
       let data
       try {
-        data = JSON.parse(text)
+        data = await res.json()
       } catch {
-        data = { message: text }
+        data = { message: "Unexpected server response" }
       }
 
       if (res.ok) {
@@ -44,28 +41,34 @@ const Login = ({ onLogin }) => {
           token: data.token,
         })
 
-        toast({
-          title: "تم تسجيل الدخول بنجاح",
-          description: `مرحباً بك ${data.user.name}`,
+        toast.success(`Welcome back, ${data.user.name}`, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "colored",
+          transition: Bounce,
         })
 
-        // التوجيه بناءً على الدور
         if (data.user.role === "admin") navigate("/admin")
         else navigate("/student")
       } else {
-        toast({
-          title: "خطأ في تسجيل الدخول",
-          description: data.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
-          variant: "destructive",
+        toast.error(data.message || "❌ Invalid email or password", {
+          position: "top-right",
+          autoClose: 5000,
+          theme: "colored",
+          transition: Bounce,
         })
       }
     } catch (err) {
-      toast({
-        title: "حدث خطأ",
-        description: "فشل الاتصال بالخادم",
-        variant: "destructive",
+      toast.error("⚠️ Failed to connect to the server", {
+        position: "top-right",
+        autoClose: 5000,
+        theme: "colored",
+        transition: Bounce,
       })
-      console.error("Login error:", err)
     } finally {
       setIsLoading(false)
     }

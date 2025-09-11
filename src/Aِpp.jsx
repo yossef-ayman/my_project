@@ -12,10 +12,15 @@ import AttendanceSystem from "./components/admin/AttendanceSystem"
 import AwardsManager from "./components/admin/AwardsManager"
 import StudentPortal from "./components/StudentPortal"
 import Login from "./components/Login"
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
+// 🟢 استيراد التوستر
+import { Toaster } from "./components/ui/toaster"
+import { ToastProvider } from "./hooks/use-toast"
 function App() {
   const [students, setStudents] = useState([])
-  const [user, setUser] = useState(null) // 🟢 المستخدم الحالي
+  const [user, setUser] = useState(null)
 
   useEffect(() => {
     fetch("http://localhost:8080/students")
@@ -52,13 +57,12 @@ function App() {
   }
 
   return (
+  <ToastProvider>
     <Router>
       <Routes>
-        {/* 🟢 login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login onLogin={setUser} />} />
 
-        {/* 🟢 admin routes */}
         <Route
           path="/admin"
           element={
@@ -70,7 +74,6 @@ function App() {
           }
         />
 
-        {/* 🟢 student route */}
         <Route
           path="/student"
           element={
@@ -82,7 +85,6 @@ function App() {
           }
         />
 
-        {/* 🟢 admin sub-pages */}
         <Route
           path="/admin/students"
           element={
@@ -103,7 +105,24 @@ function App() {
         <Route path="/admin/exams" element={user && user.role === "admin" ? <ExamManager /> : <Navigate to="/login" replace />} />
         <Route path="/admin/settings" element={user && user.role === "admin" ? <CenterSettings /> : <Navigate to="/login" replace />} />
       </Routes>
+
+      {/* 🟢 هنا ضفنا التوستر */}
+      <Toaster />
     </Router>
+     <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
+    </ToastProvider>
+
   )
 }
 

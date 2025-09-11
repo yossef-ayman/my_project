@@ -1,44 +1,24 @@
-"use client"
+import { createContext, useContext, useState } from "react";
 
-import { createContext, useState, useCallback } from "react"
+const ToastContext = createContext();
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 5000
+export function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
 
-const ToastContext = createContext({})
-
-let toastId = 0
-
-export const useToast = () => {
-  const [toasts, setToasts] = useState([])
-
-  const toast = useCallback(({ title, description, variant = "default" }) => {
-    const id = toastId++
-    const newToast = {
-      id,
-      title,
-      description,
-      variant,
-      open: true,
-    }
-
-    setToasts((prev) => [...prev.slice(0, TOAST_LIMIT - 1), newToast])
-
+  const toast = (message, type = "default") => {
+    setToasts((prev) => [...prev, { id: Date.now(), message, type }]);
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, TOAST_REMOVE_DELAY)
-  }, [])
+      setToasts((prev) => prev.slice(1));
+    }, 3000);
+  };
 
-  const dismiss = useCallback((id) => {
-    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, open: false } : t)))
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 100)
-  }, [])
+  return (
+    <ToastContext.Provider value={{ toast, toasts }}>
+      {children}
+    </ToastContext.Provider>
+  );
+}
 
-  return {
-    toast,
-    dismiss,
-    toasts,
-  }
+export function useToast() {
+  return useContext(ToastContext);
 }
