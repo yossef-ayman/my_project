@@ -13,6 +13,7 @@ import "react-toastify/dist/ReactToastify.css"
 
 function StudentManager() {
   const navigate = useNavigate()
+  const token = localStorage.getItem("token")  // ✅ نجيب التوكن
 
   const [students, setStudents] = useState([])
   const [newStudent, setNewStudent] = useState({
@@ -33,21 +34,25 @@ function StudentManager() {
   const [places, setPlaces] = useState([])
   const [editingStudent, setEditingStudent] = useState(null)
 
-  // جلب الأماكن
+  // 📌 جلب الأماكن
   useEffect(() => {
-    fetch("http://localhost:8080/places")
-      .then((res) => res.json())
-      .then((data) => setPlaces(data))
+    fetch(`${process.env.REACT_APP_API_URL}/places`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(setPlaces)
       .catch(() => toast.error("❌ خطأ أثناء تحميل الأماكن", { transition: Bounce }))
-  }, [])
+  }, [token])
 
-  // جلب الطلاب
+  // 📌 جلب الطلاب
   useEffect(() => {
-    fetch("http://localhost:8080/students")
-      .then((res) => res.json())
-      .then((data) => setStudents(data))
+    fetch(`${process.env.REACT_APP_API_URL}/students`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(setStudents)
       .catch(() => toast.error("❌ خطأ أثناء تحميل الطلاب", { transition: Bounce }))
-  }, [])
+  }, [token])
 
   // ✅ البحث + الفلترة
   const filteredStudents = useMemo(() => {
@@ -70,22 +75,25 @@ function StudentManager() {
       return
     }
 
-    fetch("http://localhost:8080/students", {
+    fetch(`${process.env.REACT_APP_API_URL}/students`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
       body: JSON.stringify({
         ...newStudent,
         registrationDate: new Date().toLocaleDateString("ar-EG"),
         attendanceCount: 0,
       }),
     })
-      .then((res) => res.json())
+      .then(res => res.json())
       .then((data) => {
         if (data.error) {
           toast.error(data.error, { transition: Bounce })
           return
         }
-        setStudents((prev) => [...prev, data])
+        setStudents(prev => [...prev, data])
         setNewStudent({
           name: "",
           email: "",
@@ -109,29 +117,23 @@ function StudentManager() {
       return
     }
 
-    fetch(`http://localhost:8080/students/${editingStudent._id}`, {
+    fetch(`${process.env.REACT_APP_API_URL}/students/${editingStudent._id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
       body: JSON.stringify(newStudent),
     })
-      .then((res) => res.json())
+      .then(res => res.json())
       .then((updated) => {
         if (updated.error) {
           toast.error(updated.error, { transition: Bounce })
           return
         }
-        setStudents((prev) => prev.map((s) => (s._id === updated._id ? updated : s)))
+        setStudents(prev => prev.map((s) => (s._id === updated._id ? updated : s)))
         setEditingStudent(null)
-        setNewStudent({
-          name: "",
-          email: "",
-          password: "",
-          stdcode: "",
-          phone: "",
-          parentPhone: "",
-          grade: "",
-          place: "",
-        })
+        setNewStudent({ name: "", email: "", password: "", stdcode: "", phone: "", parentPhone: "", grade: "", place: "" })
         setShowAddForm(false)
         toast.success("✅ تم تحديث بيانات الطالب", { transition: Bounce })
       })
@@ -142,11 +144,12 @@ function StudentManager() {
   const handleRemoveStudent = (_id) => {
     if (!window.confirm("هل أنت متأكد من حذف الطالب؟")) return
 
-    fetch(`http://localhost:8080/students/${_id}`, {
+    fetch(`${process.env.REACT_APP_API_URL}/students/${_id}`, {
       method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
     })
       .then(() => {
-        setStudents((prev) => prev.filter((s) => s._id !== _id))
+        setStudents(prev => prev.filter((s) => s._id !== _id))
         toast.success("🗑️ تم حذف الطالب", { transition: Bounce })
       })
       .catch(() => toast.error("❌ فشل في حذف الطالب", { transition: Bounce }))
@@ -161,33 +164,17 @@ function StudentManager() {
 
   return (
     <div className="space-y-6 p-6 min-h-screen bg-gradient-to-b from-gray-50 to-gray-100" dir="rtl">
-      {/* ✅ ToastContainer */}
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="colored"
-        transition={Bounce}
-      />
+      <ToastContainer position="top-right" autoClose={3000} theme="colored" transition={Bounce} />
 
       {/* الهيدر */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => navigate("/admin")}
-            className="bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-xl flex items-center gap-2"
-          >
+          <Button onClick={() => navigate("/admin")} className="bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-xl flex items-center gap-2">
             <ArrowRight className="w-4 h-4" /> رجوع
           </Button>
           <h1 className="text-2xl font-bold text-gray-800">📚 إدارة الطلاب</h1>
         </div>
-        <Button
-          onClick={() => setShowAddForm((prev) => !prev)}
-          className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:scale-105 transition-transform"
-        >
+        <Button onClick={() => setShowAddForm(prev => !prev)} className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:scale-105 transition-transform">
           <Plus className="w-4 h-4 ml-2" /> {showAddForm ? "إغلاق" : "إضافة طالب"}
         </Button>
       </div>

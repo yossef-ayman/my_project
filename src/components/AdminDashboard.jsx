@@ -17,56 +17,44 @@ import {
   LogOut,
 } from "lucide-react"
 
-const LOCALSTORAGE_KEY = "students"
-
-const AdminDashboard = ({ user, onLogout, availableLocations }) => {
+const AdminDashboard = ({ user, onLogout }) => {
   const [students, setStudents] = useState([])
   const [news, setNews] = useState([])
   const [places, setPlaces] = useState([])
   const navigate = useNavigate()
+  const token = localStorage.getItem("authToken")
 
-  // Load students from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(LOCALSTORAGE_KEY)
-    setStudents(saved ? JSON.parse(saved) : [])
-  }, [])
-
-  // Save students to localStorage
-  useEffect(() => {
-    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(students))
-  }, [students])
-
-  // Fetch data from backend
+  // 📌 جلب البيانات من الباك إند
   useEffect(() => {
     refreshData()
   }, [])
 
-  // Function: refresh all data
-  const refreshData = () => {
-    fetch("http://localhost:8080/students")
-      .then((res) => res.json())
-      .then((data) => setStudents(data || []))
-      .catch((err) => console.error(err))
+  const refreshData = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` }
 
-    fetch("http://localhost:8080/news")
-      .then((res) => res.json())
-      .then((data) => setNews(data || []))
-      .catch((err) => console.error(err))
+      const [resStudents, resNews, resPlaces] = await Promise.all([
+        fetch(`${process.env.REACT_APP_API_URL}/students`, { headers }),
+        fetch(`${process.env.REACT_APP_API_URL}/news`, { headers }),
+        fetch(`${process.env.REACT_APP_API_URL}/places`, { headers }),
+      ])
 
-    fetch("http://localhost:8080/places")
-      .then((res) => res.json())
-      .then((data) => setPlaces(data || []))
-      .catch((err) => console.error(err))
+      setStudents(await resStudents.json())
+      setNews(await resNews.json())
+      setPlaces(await resPlaces.json())
+    } catch (err) {
+      console.error("❌ خطأ تحميل البيانات", err)
+    }
   }
 
-  // Function: count students by grade
+  // 📌 عداد الطلاب حسب الصف
   const getStudentCountByGrade = (grade) => {
     return students.filter((s) => s.grade?.includes(grade)).length
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top bar */}
+      {/* ✅ Top bar */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -78,22 +66,22 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           <div className="flex items-center gap-3">
             {/* زر تسجيل الخروج */}
             <Button
-  variant="outline"
-  onClick={() => {
-    // إزالة بيانات الجلسة فقط بدون مسح localStorage كله
-    localStorage.removeItem("authToken"); // لو عندك توكن تسجيل الدخول
-    navigate("/login"); // تحويل المستخدم لصفحة تسجيل الدخول
-  }}
-  className="flex items-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-transparent"
->
-  <LogOut className="h-4 w-4" />
-  تسجيل الخروج
-</Button>
-
+              variant="outline"
+              onClick={() => {
+                localStorage.removeItem("authToken") // ✅ إزالة التوكن فقط
+                onLogout?.()
+                navigate("/login")
+              }}
+              className="flex items-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-transparent"
+            >
+              <LogOut className="h-4 w-4" />
+              تسجيل الخروج
+            </Button>
           </div>
         </div>
       </div>
 
+      {/* ✅ Content */}
       <div className="container mx-auto p-4 max-w-7xl space-y-6" dir="rtl">
         {/* Welcome card */}
         <Card className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-gray-200">
@@ -110,7 +98,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </CardHeader>
         </Card>
 
-        {/* Stats */}
+        {/* ✅ Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-blue-500 text-white">
             <CardContent className="p-6 flex justify-between items-center">
@@ -165,10 +153,10 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </Card>
         </div>
 
-        {/* Tools section */}
+        {/* ✅ Tools section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Link to="/admin/students">
-            <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-blue-200 bg-blue-50">
+            <Card className="cursor-pointer hover:shadow-lg border border-blue-200 bg-blue-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-blue-800 text-lg font-semibold">
                   <UserPlus className="h-6 w-6" />
@@ -186,7 +174,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </Link>
 
           <Link to="/admin/attendance">
-            <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-green-200 bg-green-50">
+            <Card className="cursor-pointer hover:shadow-lg border border-green-200 bg-green-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-green-800 text-lg font-semibold">
                   <ClipboardCheck className="h-6 w-6" />
@@ -203,7 +191,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </Link>
 
           <Link to="/admin/news">
-            <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-purple-200 bg-purple-50">
+            <Card className="cursor-pointer hover:shadow-lg border border-purple-200 bg-purple-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-purple-800 text-lg font-semibold">
                   <Newspaper className="h-6 w-6" />
@@ -221,7 +209,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </Link>
 
           <Link to="/admin/awards">
-            <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-yellow-200 bg-yellow-50">
+            <Card className="cursor-pointer hover:shadow-lg border border-yellow-200 bg-yellow-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-yellow-800 text-lg font-semibold">
                   <Award className="h-6 w-6" />
@@ -239,7 +227,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </Link>
 
           <Link to="/admin/exams">
-            <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-indigo-200 bg-indigo-50">
+            <Card className="cursor-pointer hover:shadow-lg border border-indigo-200 bg-indigo-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-indigo-800 text-lg font-semibold">
                   <FileText className="h-6 w-6" />
@@ -257,7 +245,7 @@ const AdminDashboard = ({ user, onLogout, availableLocations }) => {
           </Link>
 
           <Link to="/admin/settings">
-            <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 border border-gray-200 bg-gray-50">
+            <Card className="cursor-pointer hover:shadow-lg border border-gray-200 bg-gray-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
                   <Settings className="h-6 w-6" />

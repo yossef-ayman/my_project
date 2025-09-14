@@ -20,7 +20,7 @@ const Login = ({ onLogin }) => {
     setIsLoading(true)
 
     try {
-      const res = await fetch("http://localhost:8080/login", {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -33,29 +33,31 @@ const Login = ({ onLogin }) => {
         data = { message: "Unexpected server response" }
       }
 
-      if (res.ok) {
-        onLogin({
+      if (res.ok && data.token) {
+        // ✅ حفظ بيانات المستخدم + التوكن
+        localStorage.setItem("authToken", data.token)
+        localStorage.setItem("user", JSON.stringify(data.user))
+
+        // ✅ كولباك داخلي للـ state
+        onLogin?.({
           email: data.user.email,
           name: data.user.name,
           role: data.user.role,
           token: data.token,
         })
 
-        toast.success(`Welcome back, ${data.user.name}`, {
+        toast.success(`مرحبا بعودتك ${data.user.name}`, {
           position: "top-right",
           autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
           theme: "colored",
           transition: Bounce,
         })
 
+        // ✅ إعادة التوجيه حسب الدور
         if (data.user.role === "admin") navigate("/admin")
         else navigate("/student")
       } else {
-        toast.error(data.message || "❌ Invalid email or password", {
+        toast.error(data.message || "❌ البريد الإلكتروني أو كلمة المرور غير صحيحة", {
           position: "top-right",
           autoClose: 5000,
           theme: "colored",
@@ -63,7 +65,7 @@ const Login = ({ onLogin }) => {
         })
       }
     } catch (err) {
-      toast.error("⚠️ Failed to connect to the server", {
+      toast.error("⚠️ فشل الاتصال بالخادم", {
         position: "top-right",
         autoClose: 5000,
         theme: "colored",
@@ -100,8 +102,7 @@ const Login = ({ onLogin }) => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  البريد الإلكتروني
+                  <User className="h-4 w-4" /> البريد الإلكتروني
                 </Label>
                 <Input
                   id="email"
@@ -116,8 +117,7 @@ const Login = ({ onLogin }) => {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  كلمة المرور
+                  <Lock className="h-4 w-4" /> كلمة المرور
                 </Label>
                 <Input
                   id="password"
@@ -142,8 +142,7 @@ const Login = ({ onLogin }) => {
                   </div>
                 ) : (
                   <>
-                    <LogIn className="h-4 w-4 ml-2" />
-                    تسجيل الدخول
+                    <LogIn className="h-4 w-4 ml-2" /> تسجيل الدخول
                   </>
                 )}
               </Button>

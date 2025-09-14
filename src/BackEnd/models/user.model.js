@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const jwt = require('jsonwebtoken');
-const { boolean } = require('zod');
 
 const userSchema = new Schema(
   {
@@ -12,14 +11,14 @@ const userSchema = new Schema(
     parentPhone: { type: String, required: true },
     grade: { type: String, required: true },
     role: { type: String, enum: ['student', 'admin'], required: true },
-    stdcode: { type: String, required: false },
-    place: { type: mongoose.Schema.Types.ObjectId, ref: "Place", required: false },
+    stdcode: { type: String, required: false, unique: true },
+    place: { type: mongoose.Schema.Types.ObjectId, ref: "Place", required: false }, // <-- هنا
+    present: { type: Boolean, default: false }
   },
   {
-    timestamps: false,
+    timestamps: true,
   }
 );
-
 
 userSchema.methods.generateAuthToken = function () {
   const token = jwt.sign({ _id: this._id, email: this.email }, 'your_jwt_secret', {
@@ -27,7 +26,5 @@ userSchema.methods.generateAuthToken = function () {
   });
   return token;
 };
-
-//userSchema.index({ email: 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);

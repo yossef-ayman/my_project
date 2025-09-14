@@ -6,26 +6,52 @@ import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
 import { Badge } from "../ui/badge"
-import { ArrowRight, Search, QrCode, Hash, Check, Calendar, Clock, Users, MapPin } from "lucide-react"
+import { ArrowRight, Search, QrCode, Hash, Check, MapPin, RotateCcw } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
+const AttendanceSystem = ({ onMarkAttendance }) => {
+  const [students, setStudents] = useState([])
+  const [places, setPlaces] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [quickId, setQuickId] = useState("")
-  const [todayAttendance, setTodayAttendance] = useState({}) // key: studentKey, value: {time, note}
+  const [todayAttendance, setTodayAttendance] = useState({})
   const [isScanning, setIsScanning] = useState(false)
   const [selectedCenter, setSelectedCenter] = useState("")
   const [selectedGrade, setSelectedGrade] = useState("")
-  const [centerName] = useState("مركز أستاذ - يوسف ايمن  ")
+  const [centerName] = useState("مركز أستاذ - يوسف ايمن")
   const [notes, setNotes] = useState({})
   const { toast } = useToast()
   const inputRef = useRef(null)
   const navigate = useNavigate()
 
   const today = new Date().toLocaleDateString("ar-EG")
-  const currentTime = () => new Date().toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })
+  const currentTime = () =>
+    new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
 
-  // تحميل بيانات الحضور من localStorage
+  // 📌 تحميل الطلاب + السناتر من الباك إند
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const resStudents = await fetch(`${process.env.REACT_APP_API_URL}/students`)
+        const dataStudents = await resStudents.json()
+        setStudents(dataStudents)
+
+        const resPlaces = await fetch(`${process.env.REACT_APP_API_URL}/places`) // ✅ بدون /api
+        const dataPlaces = await resPlaces.json()
+        setPlaces(dataPlaces)
+      } catch (err) {
+        console.error("❌ خطأ في جلب البيانات", err)
+        toast({
+          title: "خطأ",
+          description: "فشل تحميل البيانات من السيرفر",
+          variant: "destructive",
+        })
+      }
+    }
+    fetchData()
+  }, [toast])
+
+  // 📌 تحميل بيانات الحضور من localStorage
   useEffect(() => {
     const savedAttendance = localStorage.getItem(`attendance-${today}`)
     if (savedAttendance) {
@@ -38,22 +64,23 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
     }
   }, [today])
 
-  // حفظ بيانات الحضور في localStorage
+  // 📌 حفظ بيانات الحضور في localStorage
   useEffect(() => {
     localStorage.setItem(`attendance-${today}`, JSON.stringify(todayAttendance))
   }, [todayAttendance, today])
 
-  // فلترة الطلاب
+  // 📌 فلترة الطلاب
   const filteredStudents = (students || [])
     .filter(
       (student) =>
         (student?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (student?.customId || "").toLowerCase().includes(searchTerm.toLowerCase())
+        (student?.stdcode || "").toLowerCase().includes(searchTerm.toLowerCase())
     )
     .filter((student) => (selectedCenter ? student.center === selectedCenter : true))
     .filter((student) => (selectedGrade ? student.grade === selectedGrade : true))
 
-  const markAttendance = (studentKey) => {
+  // ✅ تسجيل الحضور
+  const markAttendance = async (studentKey) => {
     if (todayAttendance[studentKey]) {
       toast({
         title: "تم التسجيل مسبقاً",
@@ -63,20 +90,52 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
       return
     }
 
-    const note = notes[studentKey] || ""
-    const time = currentTime()
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/attendance/mark`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: studentKey }),
+      })
 
-    setTodayAttendance((prev) => ({
-      ...prev,
-      [studentKey]: { time, note }
-    }))
-    onMarkAttendance?.(studentKey, "القاعة الرئيسية")
+      const note = notes[studentKey] || ""
+      const time = currentTime()
 
-    const student = students.find((s) => (s.id || s.customId) === studentKey)
-    toast({
-      title: "✅ تم تسجيل الحضور",
-      description: `تم تسجيل حضور ${student?.name || "طالب"} بنجاح`,
-    })
+      setTodayAttendance((prev) => ({
+        ...prev,
+        [studentKey]: { time, note },
+      }))
+      onMarkAttendance?.(studentKey, "القاعة الرئيسية")
+
+      const student = students.find((s) => s.stdcode === studentKey)
+      toast({
+        title: "✅ تم تسجيل الحضور",
+        description: `تم تسجيل حضور ${student?.name || "طالب"} بنجاح`,
+      })
+    } catch (err) {
+      toast({
+        title: "خطأ",
+        description: "فشل تسجيل الحضور في السيرفر",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // ✅ Reset الحضور
+  const resetAttendance = async () => {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/attendance/reset`, { method: "POST" })
+      setTodayAttendance({})
+      toast({
+        title: "🔄 تم تصفير الحضور",
+        description: "تم تصفير الحضور لكل الطلاب",
+      })
+    } catch (err) {
+      toast({
+        title: "خطأ",
+        description: "تعذر الاتصال بالسيرفر",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleQuickAttendance = () => {
@@ -90,7 +149,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
     }
 
     const student = students.find(
-      (s) => (s?.customId || "").toLowerCase() === quickId.toLowerCase().trim()
+      (s) => (s?.stdcode || "").toLowerCase() === quickId.toLowerCase().trim()
     )
 
     if (!student) {
@@ -104,15 +163,13 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
       return
     }
 
-    markAttendance(student.id || student.customId)
+    markAttendance(student.stdcode)
     setQuickId("")
     inputRef.current?.focus()
   }
 
   const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleQuickAttendance()
-    }
+    if (e.key === "Enter") handleQuickAttendance()
   }
 
   const startQRScanning = () => {
@@ -128,7 +185,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
         return
       }
       const randomStudent = students[Math.floor(Math.random() * students.length)]
-      markAttendance(randomStudent.id || randomStudent.customId)
+      markAttendance(randomStudent.stdcode)
       setIsScanning(false)
       toast({
         title: "تم مسح QR Code",
@@ -144,13 +201,12 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
     return "غير محدد"
   }
 
-  // حساب الإحصائيات
+  // 📌 الإحصائيات
   const totalStudents = filteredStudents.length
-  const presentCount = filteredStudents.filter((s) =>
-    todayAttendance[s.id || s.customId]
-  ).length
+  const presentCount = filteredStudents.filter((s) => todayAttendance[s.stdcode]).length
   const absentCount = totalStudents - presentCount
-  const absencePercentage = totalStudents > 0 ? Math.round((absentCount / totalStudents) * 100) : 0
+  const absencePercentage =
+    totalStudents > 0 ? Math.round((absentCount / totalStudents) * 100) : 0
 
   return (
     <div className="space-y-6 min-h-screen p-6 bg-gradient-to-br from-gray-50 to-blue-50" dir="rtl">
@@ -162,6 +218,9 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
         </Button>
         <h1 className="text-2xl font-bold">نظام تسجيل الحضور</h1>
         <Badge variant="secondary" className="mr-auto">{today}</Badge>
+        <Button variant="destructive" size="sm" onClick={resetAttendance}>
+          <RotateCcw className="h-4 w-4 ml-1" /> تصفير الحضور
+        </Button>
       </div>
 
       {/* معلومات المركز */}
@@ -186,9 +245,9 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
               onChange={(e) => setSelectedCenter(e.target.value)}
             >
               <option value="">كل السناتر</option>
-              <option value="المعادي">المعادي</option>
-              <option value="حلوان">حلوان</option>
-              <option value="مدينة نصر">مدينة نصر</option>
+              {places.map((place) => (
+                <option key={place._id} value={place.name}>{place.name}</option>
+              ))}
             </select>
           </CardContent>
         </Card>
@@ -308,7 +367,7 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
           ) : (
             <div className="space-y-4">
               {filteredStudents.map((student) => {
-                const uniqueKey = student.id || student.customId
+                const uniqueKey = student.stdcode
                 const attendance = todayAttendance[uniqueKey]
                 const isPresent = !!attendance
                 return (
@@ -317,12 +376,12 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${isPresent ? "bg-green-500" : "bg-gray-400"}`}>
-                            {isPresent ? <Check className="h-6 w-6" /> : (student?.customId || "??").slice(-2)}
+                            {isPresent ? <Check className="h-6 w-6" /> : (student?.stdcode || "??").slice(-2)}
                           </div>
                           <div className="flex flex-col">
                             <h3 className="font-semibold text-lg">{student?.name || "طالب مجهول"}</h3>
                             <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
-                              <span>رقم: {student?.customId || "??"}</span>
+                              <span>رقم: {student?.stdcode || "??"}</span>
                               <span>{getGradeText(student?.grade)}</span>
                               <span>السنتر: {student?.center || "-"}</span>
                               <span>الحضور: {student?.attendanceCount || 0} مرة</span>
@@ -334,10 +393,9 @@ const AttendanceSystem = ({ students = [], onMarkAttendance }) => {
                               value={notes[uniqueKey] || ""}
                               onChange={(e) => setNotes((prev) => ({ ...prev, [uniqueKey]: e.target.value }))}
                               className="mt-1 text-sm"
-                              disabled={isPresent} // بعد تسجيل الحضور الملاحظة تتقفل
+                              disabled={isPresent}
                             />
 
-                            {/* وقت الحضور */}
                             {attendance && (
                               <p className="text-xs text-gray-500 mt-1">
                                 تم التسجيل الساعة: {attendance.time}
