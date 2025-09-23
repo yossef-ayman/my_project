@@ -2,17 +2,31 @@ const express = require("express");
 const router = express.Router();
 const ExamResult = require("../models/examResult.model");
 const auth = require("../middlewares/auth");
+const Exam = require("../models/exam.model");
 
 // 📌 تسجيل نتيجة امتحان (الطالب)
 router.post("/", auth(["student", "admin"]), async (req, res) => {
   try {
-    const { examId, studentId, score, totalQuestions, answers, completedAt } = req.body;
+    const { examId, studentId, answers, completedAt } = req.body;
+
+    // 🟢 جيب الامتحان من الداتابيس
+    const exam = await Exam.findById(examId);
+    if (!exam) return res.status(404).json({ error: "الامتحان غير موجود" });
+
+    // 🟢 احسب السكور هنا
+    let score = 0;
+    exam.questions.forEach((q, index) => {
+      const correct = Number(q.correctAnswer); // تأكد انه رقم
+      if (answers[index] === correct) {
+        score++;
+      }
+    });
 
     const result = new ExamResult({
       exam: examId,
       student: studentId,
       score,
-      totalQuestions,
+      totalQuestions: exam.questions.length,
       answers,
       completedAt: completedAt || new Date()
     });
@@ -23,6 +37,7 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // 📌 استرجاع نتائج طالب محدد
 router.get("/student/:id", auth(["student", "admin"]), async (req, res) => {

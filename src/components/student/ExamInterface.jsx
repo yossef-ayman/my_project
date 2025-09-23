@@ -94,13 +94,18 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
     try {
       // 🟢 حفظ النتيجة في الباك إند
       const res = await fetch(`${process.env.REACT_APP_API_URL}/exam-results`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(examResult)
-      })
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    examId: exam._id,
+    studentId,
+    answers,
+    completedAt: new Date().toISOString(),
+  }),
+});
 
       if (!res.ok) throw new Error("⚠️ فشل تسجيل النتيجة في السيرفر")
       const saved = await res.json()

@@ -323,7 +323,10 @@ function StudentManager() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
           >
-            <Card className="overflow-hidden shadow-lg hover:shadow-2xl transition rounded-2xl">
+            <Card
+              className="overflow-hidden shadow-lg hover:shadow-2xl transition rounded-2xl cursor-pointer"
+              onClick={() => navigate(`/students/${s._id}`)} // ✅ استخدم s._id
+            >
               <div
                 className={`h-2 bg-gradient-to-r ${
                   gradeColors[s.grade] || "from-gray-400 to-gray-600"
@@ -348,7 +351,8 @@ function StudentManager() {
                   <Button
                     size="sm"
                     className="bg-yellow-400 hover:bg-yellow-500 text-white rounded-lg"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation() // ✅ يمنع فتح صفحة الطالب
                       setEditingStudent(s)
                       setNewStudent(s)
                       setShowAddForm(true)
@@ -359,7 +363,10 @@ function StudentManager() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleRemoveStudent(s._id)}
+                    onClick={(e) => {
+                      e.stopPropagation() // ✅ يمنع فتح صفحة الطالب
+                      handleRemoveStudent(s._id)
+                    }}
                     className="text-red-600 hover:bg-red-50 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4" /> حذف
@@ -370,6 +377,7 @@ function StudentManager() {
           </motion.div>
         ))}
       </div>
+
     </div>
   )
 }

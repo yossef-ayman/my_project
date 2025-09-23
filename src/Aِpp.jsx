@@ -2,7 +2,7 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { useState, useEffect } from "react"
-
+import StudentDetails from "./components/admin/StudentDetails"
 import AdminDashboard from "./components/AdminDashboard"
 import ExamManager from "./components/admin/ExamManager"
 import NewsManager from "./components/admin/NewsManager"
@@ -119,7 +119,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-
+          <Route path="/students/:id" element={<ProtectedRoute roles={["admin"]}><StudentDetails /></ProtectedRoute>} />
           <Route path="/admin/attendance" element={<ProtectedRoute roles={["admin"]}><AttendanceSystem /></ProtectedRoute>} />
           <Route path="/admin/news" element={<ProtectedRoute roles={["admin"]}><NewsManager /></ProtectedRoute>} />
           <Route path="/admin/awards" element={<ProtectedRoute roles={["admin"]}><AwardsManager /></ProtectedRoute>} />

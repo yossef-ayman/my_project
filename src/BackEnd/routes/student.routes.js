@@ -6,8 +6,21 @@ const bcrypt = require("bcrypt");
 // 🔹 Get all students
 router.get("/", async (req, res) => {
   try {
-    const students = await User.find({ role: "student" });
+    const students = await User.find({ role: "student" }).select("-password");
     res.status(200).json(students);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 🔹 Get single student by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const student = await User.findById(req.params.id).select("-password");
+    if (!student || student.role !== "student") {
+      return res.status(404).json({ message: "Student not found" });
+    }
+    res.json(student);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -48,7 +61,7 @@ router.post("/", async (req, res) => {
 // 🔹 Update student
 router.put("/:id", async (req, res) => {
   try {
-    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select("-password");
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   } catch (err) {
