@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { ArrowRight, MapPin, Plus, X } from "lucide-react"
-import { useToast } from "../../hooks/use-toast"
 import { Badge } from "../ui/badge"
+import { ToastContainer, toast, Bounce } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
-const API_URL = "http://localhost:8080/places"
+const API_URL = `${process.env.REACT_APP_API_URL}/places`
 
 const DAYS = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"]
 
@@ -22,7 +23,6 @@ const CenterSettings = ({ onBack }) => {
     return navigate("/admin")
   }
 
-  const { toast } = useToast()
   const [places, setPlaces] = useState([])
   const [newName, setNewName] = useState("")
   const [newLocation, setNewLocation] = useState("")
@@ -30,19 +30,26 @@ const CenterSettings = ({ onBack }) => {
   const [newTo, setNewTo] = useState("")
   const [newGrade, setNewGrade] = useState("")
   const [newDays, setNewDays] = useState([])
+  const [editingPlace, setEditingPlace] = useState(null) // لتتبع التعديل
+
+  const token = localStorage.getItem("token") // ✅ نجيب التوكن
 
   // تحميل الأماكن
   useEffect(() => {
-    fetch(API_URL)
+    fetch(API_URL, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
       .then((res) => res.json())
       .then((data) => setPlaces(data))
-      .catch(() => toast({ title: "خطأ", description: "فشل تحميل الأماكن", variant: "destructive" }))
-  }, [])
+      .catch(() =>
+        toast.error("فشل تحميل الأماكن", { position: "top-right", theme: "colored", transition: Bounce })
+      )
+  }, [token])
 
   // إضافة مكان
   const addPlace = async () => {
     if (!newName || !newLocation || !newFrom || !newTo || !newGrade || newDays.length === 0) {
-      toast({ title: "خطأ", description: "يرجى إدخال كل البيانات", variant: "destructive" })
+      toast.error("يرجى إدخال كل البيانات", { position: "top-right", theme: "colored", transition: Bounce })
       return
     }
 
@@ -51,35 +58,79 @@ const CenterSettings = ({ onBack }) => {
     try {
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(newPlace),
       })
       const data = await res.json()
       setPlaces([...places, data])
-      setNewName("")
-      setNewLocation("")
-      setNewFrom("")
-      setNewTo("")
-      setNewGrade("")
-      setNewDays([])
-      toast({ title: "تم الإضافة", description: `تمت إضافة المكان: ${data.name}` })
+      setNewName(""); setNewLocation(""); setNewFrom(""); setNewTo(""); setNewGrade(""); setNewDays([])
+      toast.success(`تمت إضافة المكان: ${data.name}`, { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: "تعذر إضافة المكان", variant: "destructive" })
+      toast.error("تعذر إضافة المكان", { position: "top-right", theme: "colored", transition: Bounce })
+    }
+  }
+
+  // بدء التعديل
+  const startEdit = (place) => {
+    setEditingPlace(place)
+    setNewName(place.name)
+    setNewLocation(place.location)
+    setNewFrom(place.from)
+    setNewTo(place.to)
+    setNewGrade(place.grade)
+    setNewDays(place.days || [])
+  }
+
+  // تحديث مكان
+  const updatePlace = async () => {
+    if (!editingPlace) return
+
+    const updated = {
+      name: newName,
+      location: newLocation,
+      from: newFrom,
+      to: newTo,
+      grade: newGrade,
+      days: newDays,
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/${editingPlace._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updated),
+      })
+      const data = await res.json()
+      setPlaces(places.map((p) => (p._id === editingPlace._id ? data : p)))
+      toast.success(`تم تعديل المكان: ${data.name}`, { position: "top-right", theme: "colored", transition: Bounce })
+      setEditingPlace(null)
+      setNewName(""); setNewLocation(""); setNewFrom(""); setNewTo(""); setNewGrade(""); setNewDays([])
+    } catch (err) {
+      toast.error("فشل تعديل المكان", { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
   // حذف مكان
   const removePlace = async (id) => {
     try {
-      await fetch(`${API_URL}/${id}`, { method: "DELETE" })
+      await fetch(`${API_URL}/${id}`, { 
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` } 
+      })
       setPlaces(places.filter((p) => p._id !== id))
-      toast({ title: "تم الحذف", description: "تم حذف المكان بنجاح" })
+      toast.success("تم حذف المكان بنجاح 🗑️", { position: "top-right", theme: "colored", transition: Bounce })
     } catch (err) {
-      toast({ title: "خطأ", description: "تعذر حذف المكان", variant: "destructive" })
+      toast.error("تعذر حذف المكان", { position: "top-right", theme: "colored", transition: Bounce })
     }
   }
 
-  // التعامل مع اختيار/إلغاء الأيام (توجّل)
+  // التعامل مع اختيار/إلغاء الأيام
   const toggleDay = (day) => {
     setNewDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
@@ -88,6 +139,7 @@ const CenterSettings = ({ onBack }) => {
 
   return (
     <div className="space-y-6" dir="rtl">
+      <ToastContainer />
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={handleBack}>
           <ArrowRight className="h-4 w-4" />
@@ -102,7 +154,7 @@ const CenterSettings = ({ onBack }) => {
             <MapPin className="h-5 w-5" />
             إدارة الأماكن
           </CardTitle>
-          <CardDescription>إضافة وحذف أماكن الحضور</CardDescription>
+          <CardDescription>إضافة، تعديل وحذف أماكن الحضور</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* إدخال بيانات المكان */}
@@ -111,8 +163,6 @@ const CenterSettings = ({ onBack }) => {
             <Input placeholder="الموقع" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
             <Input type="time" value={newFrom} onChange={(e) => setNewFrom(e.target.value)} />
             <Input type="time" value={newTo} onChange={(e) => setNewTo(e.target.value)} />
-
-            {/* اختيار الصف */}
             <select
               className="w-full p-2 border rounded"
               value={newGrade}
@@ -125,7 +175,7 @@ const CenterSettings = ({ onBack }) => {
             </select>
           </div>
 
-          {/* اختيار الأيام (toggle badges) */}
+          {/* اختيار الأيام */}
           <div className="space-y-2 mt-3">
             <Label>الأيام المتاحة:</Label>
             <div className="flex flex-wrap gap-2">
@@ -145,8 +195,12 @@ const CenterSettings = ({ onBack }) => {
             </div>
           </div>
 
-          <Button onClick={addPlace} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white mt-2">
-            <Plus className="h-4 w-4" /> إضافة
+          <Button
+            onClick={editingPlace ? updatePlace : addPlace}
+            size="sm"
+            className={`mt-2 ${editingPlace ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} text-white`}
+          >
+            {editingPlace ? "تحديث" : <><Plus className="h-4 w-4" /> إضافة</>}
           </Button>
 
           {/* جدول عرض الأماكن */}
@@ -179,7 +233,15 @@ const CenterSettings = ({ onBack }) => {
                             <Badge key={d} className="mx-1 bg-blue-100 text-blue-700">{d}</Badge>
                           ))}
                         </td>
-                        <td className="border p-2">
+                        <td className="border p-2 flex justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600"
+                            onClick={() => startEdit(place)}
+                          >
+                            ✏️
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
