@@ -29,8 +29,25 @@ const StudentPortal = ({ user = {}, student = {} }) => {
   const [showAllNews, setShowAllNews] = useState(false)
   const [qrGenerated, setQrGenerated] = useState(false)
 
+  // ✅ حالة جديدة: لتخزين بيانات الحضور
+  const [attendanceRecords, setAttendanceRecords] = useState([])
+
   const token = localStorage.getItem("authToken")
   const apiBaseUrl = process.env.REACT_APP_API_URL
+
+  // ✅ useEffect جديد: لجلب سجلات الحضور
+  useEffect(() => {
+    if (!student?._id || !token) return
+    fetch(`${apiBaseUrl}/attendance/student/${student._id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      
+    .then(res => res.json())
+      .then(data => {
+        setAttendanceRecords(data)
+      })
+      .catch(err => console.error("خطأ في تحميل سجلات الحضور:", err))
+  }, [student, token, apiBaseUrl])
 
   useEffect(() => {
     if (!token) return
@@ -84,19 +101,6 @@ const StudentPortal = ({ user = {}, student = {} }) => {
 
   const getExamResult = (examId) => {
     return examResults.find((r) => r.examId === examId)
-  }
-
-  const getCurrentWeekAttendance = () => {
-    if (!student) return false
-    const now = new Date()
-    const currentWeek = getWeekKey(now)
-    return student.weeklyAttendance?.[currentWeek] || false
-  }
-
-  const getWeekKey = (date) => {
-    const year = date.getFullYear()
-    const week = Math.ceil(((date.getTime() - new Date(year, 0, 1).getTime()) / 86400000 + 1) / 7)
-    return `${year}-W${week}`
   }
 
   const getPriorityColor = (priority) => {
@@ -169,7 +173,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                     مرحباً {user?.name || "يوسف"}
                   </CardTitle>
                   <CardDescription className="text-sm font-medium text-purple-600 mt-1">
-                    أهلاً بك في منصة أستاذ الاستاذ  
+                    أهلاً بك في منصة أستاذ الاستاذ 
                   </CardDescription>
                 </div>
               </div>
@@ -192,16 +196,50 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                   <p className="text-sm text-gray-600 font-semibold">حالة هذا الأسبوع</p>
                   <Badge
                     className={`text-sm font-bold mt-1 ${
-                      getCurrentWeekAttendance() ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
+                      attendanceRecords.some(record => new Date(record.date).getDay() === new Date().getDay() && record.present) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
                     }`}
                   >
-                    {getCurrentWeekAttendance() ? "تم الحضور" : "لم تحضر بعد"}
+                    {attendanceRecords.some(record => new Date(record.date).getDay() === new Date().getDay() && record.present) ? "تم الحضور" : "لم تحضر بعد"}
                   </Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* ✅ قسم جديد: سجل الحضور */}
+          <Card className="rounded-xl shadow-lg">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
+                <Calendar className="h-6 w-6 text-green-500" /> سجل الحضور
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                سجل الحضور والغياب الخاص بك
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              {attendanceRecords.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4 text-lg">لا يوجد سجل حضور حتى الآن.</p>
+              ) : (
+                <div className="space-y-4">
+                  {attendanceRecords.map((record) => (
+                    <div key={record._id} className="bg-gray-50 border rounded-lg p-4 flex justify-between items-center shadow-sm">
+                      <span className="text-gray-700 font-medium">
+                        {new Date(record.date).toLocaleDateString("ar-EG", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <Badge className={`${record.present ? "bg-green-500" : "bg-red-500"} text-white`}>
+                        {record.present ? "حاضر" : "غائب"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
           {/* Exams Section */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
@@ -331,7 +369,6 @@ const StudentPortal = ({ user = {}, student = {} }) => {
               )}
             </CardContent>
           </Card>
-
         </div>
         <div className="mt-8 text-center text-gray-500 text-sm">
           منصة أستاذ الاستاذ &copy; {new Date().getFullYear()} جميع الحقوق محفوظة.

@@ -14,13 +14,14 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const apiBaseUrl = process.env.REACT_APP_API_URL
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
+      const res = await fetch(`${apiBaseUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -37,6 +38,17 @@ const Login = ({ onLogin }) => {
         // ✅ حفظ بيانات المستخدم + التوكن
         localStorage.setItem("authToken", data.token)
         localStorage.setItem("user", JSON.stringify(data.user))
+
+        // ✅ خطوة جديدة: جلب بيانات الطالب بعد تسجيل الدخول بنجاح
+        if (data.user.role === "student") {
+          const studentRes = await fetch(`${apiBaseUrl}/students/${data.user.email}`, {
+            headers: { Authorization: `Bearer ${data.token}` },
+          })
+          const studentData = await studentRes.json()
+          if (studentRes.ok) {
+            localStorage.setItem("student", JSON.stringify(studentData))
+          }
+        }
 
         // ✅ كولباك داخلي للـ state
         onLogin?.({

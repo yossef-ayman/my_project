@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const Attendance = require("../models/ِAttendance.model")
+const Attendance = require("../models/ِAttendance.model");
 const User = require("../models/user.model");
 const auth = require("../middlewares/auth");
 
@@ -12,13 +12,13 @@ router.post("/mark", auth(["admin", "student"]), async (req, res) => {
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ error: "Student not found" });
 
-    // تأكد أن الطالب مش متسجل اليوم
+    // تأكد أن الطالب لم يسجل حضوره اليوم
     const already = await Attendance.findOne({
       student: studentId,
       date: {
         $gte: new Date().setHours(0, 0, 0, 0),
-        $lt: new Date().setHours(23, 59, 59, 999)
-      }
+        $lt: new Date().setHours(23, 59, 59, 999),
+      },
     });
 
     if (already) return res.status(400).json({ message: "Already marked today" });
@@ -26,11 +26,11 @@ router.post("/mark", auth(["admin", "student"]), async (req, res) => {
     const attendance = new Attendance({
       student: studentId,
       note,
-      present: true
+      present: true,
     });
     await attendance.save();
 
-    student.attendanceCount = (student.attendanceCount || 0) + 1;
+    student.attendanceCount = (student.attendanceCount ) + 1;
     await student.save();
 
     res.json({ message: "✅ Attendance marked", attendance });
@@ -46,7 +46,7 @@ router.post("/reset", auth(["admin"]), async (req, res) => {
     const todayEnd = new Date().setHours(23, 59, 59, 999);
 
     await Attendance.deleteMany({
-      date: { $gte: todayStart, $lt: todayEnd }
+      date: { $gte: todayStart, $lt: todayEnd },
     });
     res.json({ message: "🔄 Attendance reset for today" });
   } catch (err) {
@@ -59,6 +59,16 @@ router.get("/report", auth(["admin"]), async (req, res) => {
   try {
     const report = await Attendance.find().populate("student", "name stdcode grade center");
     res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 📌 راوت جديد: جلب سجلات الحضور لطالب محدد
+router.get("/student/:studentId", auth(["student", "admin"]), async (req, res) => {
+  try {
+    const attendanceRecords = await Attendance.find({ student: req.params.studentId }).sort({ date: -1 });
+    res.json(attendanceRecords);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
