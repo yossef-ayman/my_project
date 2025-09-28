@@ -94,12 +94,12 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
     try {
       // 🟢 حفظ النتيجة في الباك إند
       const res = await fetch(`${process.env.REACT_APP_API_URL}/exam-results`, {
-  method: "POST",
-  headers: {
+     method: "POST",
+    headers: {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({
+      },
+    body : JSON.stringify({
     examId: exam._id,
     studentId,
     answers,

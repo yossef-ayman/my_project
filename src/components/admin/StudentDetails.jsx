@@ -23,12 +23,6 @@ export default function StudentDetails() {
         setStudent(studentData);
 
         // 📌 سجل الحضور
-        const attendanceRes = await fetch(
-          `${process.env.REACT_APP_API_URL}/Attendance/student/${id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const attendanceData = await attendanceRes.json();
-        setAttendance(attendanceData);
 
         // 📌 نتائج الامتحانات
         const examsRes = await fetch(
@@ -65,23 +59,7 @@ export default function StudentDetails() {
         <p>📅 التسجيل: {student.registrationDate}</p>
       </div>
 
-      {/* سجل الحضور */}
-      <div className="bg-white shadow rounded-xl p-4">
-        <h2 className="text-xl font-semibold mb-2">📌 سجل الحضور</h2>
-        {attendance.length > 0 ? (
-          <ul className="list-disc pl-5 space-y-1">
-            {attendance.map((a, i) => (
-              <li key={i}>
-                {new Date(a.date).toLocaleDateString()} -{" "}
-                {a.status ? "✔️ حاضر" : "❌ غائب"}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>لا يوجد سجل حضور</p>
-        )}
-      </div>
-
+      
       {/* نتائج الامتحانات */}
       <div className="bg-white shadow rounded-xl p-4">
         <h2 className="text-xl font-semibold mb-2">📌 نتائج الامتحانات</h2>

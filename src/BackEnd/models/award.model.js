@@ -8,4 +8,4 @@ const awardSchema = new mongoose.Schema({
   type: { type: String, enum: ["تفوق", "حضور", "سلوك", "مشاركة"], default: "تفوق" }
 }, { timestamps: true })
 
-module.exports = mongoose.model("Award", awardSchema)
+module.exports = mongoose.model("Award", awardSchema) 
