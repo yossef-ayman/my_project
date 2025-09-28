@@ -38,6 +38,20 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
   }
 });
 
+// POST /exam-results/lock
+router.post("/lock", auth(["student", "admin"]), async (req, res) => {
+  const { examId, studentId } = req.body;
+  try {
+    const result = await ExamResult.findOneAndUpdate(
+      { examId, studentId },
+      { locked: true },
+      { new: true, upsert: true }
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // 📌 استرجاع نتائج طالب محدد (Admins فقط)
 router.get("/student/:id", auth(["admin"]), async (req, res) => {

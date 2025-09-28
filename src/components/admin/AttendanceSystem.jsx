@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Input } from "../ui/input"
 import { Badge } from "../ui/badge"
 import { ArrowRight, Search, QrCode, Hash, Check, MapPin, RotateCcw } from "lucide-react"
-import { useToast } from "../../hooks/use-toast"
+import { ToastContainer, toast } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
 const AttendanceSystem = ({ onMarkAttendance }) => {
   const [students, setStudents] = useState([])
@@ -20,7 +21,6 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
   const [selectedGrade, setSelectedGrade] = useState("")
   const [centerName] = useState("مركز أستاذ - يوسف ايمن")
   const [notes, setNotes] = useState({})
-  const { toast } = useToast()
   const inputRef = useRef(null)
   const navigate = useNavigate()
 
@@ -28,169 +28,156 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
   const currentTime = () =>
     new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
 
-  // 📌 تحميل الطلاب + السناتر من الباك إند
+  const token = localStorage.getItem("authToken")
+
+  // 📌 تحميل الطلاب + السناتر
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const resStudents = await fetch(`${process.env.REACT_APP_API_URL}/students`)
+        const resStudents = await fetch(`${process.env.REACT_APP_API_URL}/students`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         const dataStudents = await resStudents.json()
         setStudents(dataStudents)
 
-        const resPlaces = await fetch(`${process.env.REACT_APP_API_URL}/places`) // ✅ بدون /api
+        const resPlaces = await fetch(`${process.env.REACT_APP_API_URL}/places`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         const dataPlaces = await resPlaces.json()
         setPlaces(dataPlaces)
       } catch (err) {
         console.error("❌ خطأ في جلب البيانات", err)
-        toast({
-          title: "خطأ",
-          description: "فشل تحميل البيانات من السيرفر",
-          variant: "destructive",
-        })
+        toast.error("فشل تحميل البيانات من السيرفر")
       }
     }
     fetchData()
-  }, [toast])
+  }, [token])
 
-  // 📌 تحميل بيانات الحضور من localStorage
+  // 📌 تحميل حضور اليوم
   useEffect(() => {
-    const savedAttendance = localStorage.getItem(`attendance-${today}`)
-    if (savedAttendance) {
-      const parsed = JSON.parse(savedAttendance)
-      setTodayAttendance(parsed)
-      const savedNotes = Object.fromEntries(
-        Object.entries(parsed).map(([key, val]) => [key, val.note || ""])
-      )
-      setNotes(savedNotes)
-    }
-  }, [today])
+    const fetchAttendance = async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/attendance/today`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
 
-  // 📌 حفظ بيانات الحضور في localStorage
+        if (res.ok && Array.isArray(data.attendance)) {
+          const mapped = {}
+          data.attendance.forEach((att) => {
+            mapped[att.student] = {
+              time: new Date(att.date).toLocaleTimeString("ar-EG", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              note: att.note || "",
+            }
+          })
+          setTodayAttendance(mapped)
+          const savedNotes = Object.fromEntries(
+            Object.entries(mapped).map(([key, val]) => [key, val.note || ""])
+          )
+          setNotes(savedNotes)
+        }
+      } catch (err) {
+        console.error("❌ خطأ في جلب بيانات الحضور:", err)
+        toast.error("فشل تحميل بيانات الحضور")
+      }
+    }
+    fetchAttendance()
+  }, [token])
+
   useEffect(() => {
     localStorage.setItem(`attendance-${today}`, JSON.stringify(todayAttendance))
   }, [todayAttendance, today])
 
-  // 📌 فلترة الطلاب
-  const filteredStudents = (students || [])
-    .filter(
-      (student) =>
-        (student?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (student?.stdcode || "").toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter((student) => (selectedCenter ? student.center === selectedCenter : true))
-    .filter((student) => (selectedGrade ? student.grade === selectedGrade : true))
+  const normalizeGrade = (grade) => {
+    if (!grade) return ""
+    const g = grade.toString().toLowerCase()
+    if (["first", "1", "الصف الأول الثانوي", "اول"].includes(g)) return "الصف الأول الثانوي"
+    if (["second", "2", "الصف الثاني الثانوي", "ثاني"].includes(g)) return "الصف الثاني الثانوي"
+    if (["third", "3", "الصف الثالث الثانوي", "ثالث"].includes(g)) return "الصف الثالث الثانوي"
+    return ""
+  }
 
-  // ✅ تسجيل الحضور
-  const markAttendance = async (studentKey) => {
-    if (todayAttendance[studentKey]) {
-      toast({
-        title: "تم التسجيل مسبقاً",
-        description: "تم تسجيل حضور هذا الطالب اليوم بالفعل",
-        variant: "destructive",
-      })
-      return
-    }
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      const matchSearch =
+        s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.stdcode?.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchGrade = selectedGrade ? normalizeGrade(s.grade) === selectedGrade : true
+      const matchPlace = selectedCenter ? s.place === selectedCenter : true
+      return matchSearch && matchGrade && matchPlace
+    })
+  }, [students, searchTerm, selectedGrade, selectedCenter])
 
+  const markAttendance = async (studentId) => {
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/attendance/mark`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/attendance/mark`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: studentKey }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          studentId,
+          note: notes[studentId] || undefined,
+        }),
       })
 
-      const note = notes[studentKey] || ""
-      const time = currentTime()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || `Error ${res.status}`)
 
       setTodayAttendance((prev) => ({
         ...prev,
-        [studentKey]: { time, note },
+        [studentId]: { time: new Date().toLocaleTimeString("ar-EG"), note: notes[studentId] || "" },
       }))
-      onMarkAttendance?.(studentKey, "القاعة الرئيسية")
-
-      const student = students.find((s) => s.stdcode === studentKey)
-      toast({
-        title: "✅ تم تسجيل الحضور",
-        description: `تم تسجيل حضور ${student?.name || "طالب"} بنجاح`,
-      })
+      toast.success(`تم تسجيل حضور الطالب`)
     } catch (err) {
-      toast({
-        title: "خطأ",
-        description: "فشل تسجيل الحضور في السيرفر",
-        variant: "destructive",
-      })
+      console.error(err)
+      toast.error(err.message || "تعذر تسجيل الحضور")
     }
   }
 
-  // ✅ Reset الحضور
   const resetAttendance = async () => {
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/attendance/reset`, { method: "POST" })
+      await fetch(`${process.env.REACT_APP_API_URL}/attendance/reset`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      })
       setTodayAttendance({})
-      toast({
-        title: "🔄 تم تصفير الحضور",
-        description: "تم تصفير الحضور لكل الطلاب",
-      })
+      toast.info("تم تصفير الحضور لكل الطلاب")
     } catch (err) {
-      toast({
-        title: "خطأ",
-        description: "تعذر الاتصال بالسيرفر",
-        variant: "destructive",
-      })
+      toast.error("تعذر الاتصال بالسيرفر")
     }
   }
 
   const handleQuickAttendance = () => {
-    if (!quickId.trim()) {
-      toast({
-        title: "خطأ",
-        description: "يرجى إدخال رقم الطالب",
-        variant: "destructive",
-      })
-      return
-    }
-
+    if (!quickId.trim()) return toast.error("يرجى إدخال رقم الطالب")
     const student = students.find(
       (s) => (s?.stdcode || "").toLowerCase() === quickId.toLowerCase().trim()
     )
-
     if (!student) {
-      toast({
-        title: "طالب غير موجود",
-        description: `لا يوجد طالب برقم ${quickId}`,
-        variant: "destructive",
-      })
+      toast.error(`لا يوجد طالب برقم ${quickId}`)
       setQuickId("")
       inputRef.current?.focus()
       return
     }
-
-    markAttendance(student.stdcode)
+    markAttendance(student._id)
     setQuickId("")
     inputRef.current?.focus()
   }
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") handleQuickAttendance()
-  }
+  const handleKeyPress = (e) => { if (e.key === "Enter") handleQuickAttendance() }
 
   const startQRScanning = () => {
     setIsScanning(true)
     setTimeout(() => {
-      if (students.length === 0) {
-        toast({
-          title: "⚠️ لا يوجد طلاب",
-          description: "لا يمكن المسح لعدم وجود طلاب مسجلين",
-          variant: "destructive",
-        })
-        setIsScanning(false)
-        return
-      }
+      if (students.length === 0) return toast.error("لا يمكن المسح لعدم وجود طلاب")
       const randomStudent = students[Math.floor(Math.random() * students.length)]
-      markAttendance(randomStudent.stdcode)
+      markAttendance(randomStudent._id)
       setIsScanning(false)
-      toast({
-        title: "تم مسح QR Code",
-        description: `تم تسجيل حضور ${randomStudent?.name || "طالب"} عبر QR Code`,
-      })
+      toast.success(`تم تسجيل حضور ${randomStudent?.name || "طالب"} عبر QR Code`)
     }, 2000)
   }
 
@@ -201,15 +188,16 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
     return "غير محدد"
   }
 
-  // 📌 الإحصائيات
   const totalStudents = filteredStudents.length
-  const presentCount = filteredStudents.filter((s) => todayAttendance[s.stdcode]).length
+  const presentCount = filteredStudents.filter((s) => todayAttendance[s._id]).length
   const absentCount = totalStudents - presentCount
   const absencePercentage =
     totalStudents > 0 ? Math.round((absentCount / totalStudents) * 100) : 0
 
   return (
     <div className="space-y-6 min-h-screen p-6 bg-gradient-to-br from-gray-50 to-blue-50" dir="rtl">
+      <ToastContainer position="top-right" autoClose={3000} />
+      
       {/* الهيدر */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
@@ -234,75 +222,50 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
         </CardHeader>
       </Card>
 
-      {/* فلترة */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Filters */}
+      <div className="grid md:grid-cols-2 gap-4">
         <Card>
           <CardHeader><CardTitle>اختيار السنتر</CardTitle></CardHeader>
           <CardContent>
-            <select
-              className="w-full p-2 border rounded-lg"
-              value={selectedCenter}
-              onChange={(e) => setSelectedCenter(e.target.value)}
-            >
-              <option value="">كل السناتر</option>
-              {places.map((place) => (
-                <option key={place._id} value={place.name}>{place.name}</option>
-              ))}
+            <select className="w-full p-2 border rounded-lg" value={selectedCenter} onChange={(e) => setSelectedCenter(e.target.value)}>
+              <option value="">🔹 كل السناتر</option>
+              {places.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
             </select>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader><CardTitle>اختيار السنة الدراسية</CardTitle></CardHeader>
           <CardContent>
-            <select
-              className="w-full p-2 border rounded-lg"
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-            >
-              <option value="">كل السنوات</option>
-              <option value="first">الأول الثانوي</option>
-              <option value="second">الثاني الثانوي</option>
-              <option value="third">الثالث الثانوي</option>
+            <select className="w-full p-2 border rounded-lg" value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)}>
+              <option value="">🔹 كل السنوات</option>
+              <option value="الصف الأول الثانوي">الأول الثانوي</option>
+              <option value="الصف الثاني الثانوي">الثاني الثانوي</option>
+              <option value="الصف الثالث الثانوي">الثالث الثانوي</option>
             </select>
           </CardContent>
         </Card>
       </div>
 
+      {/* البحث */}
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Search className="h-5 w-5" /> البحث</CardTitle></CardHeader>
+        <CardContent>
+          <Input placeholder="ابحث بالاسم أو بالكود..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        </CardContent>
+      </Card>
+
       {/* تسجيل سريع + QR */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4">
         <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
-              <Hash className="h-5 w-5" />
-              تسجيل سريع بالرقم
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                ref={inputRef}
-                type="text"
-                placeholder="أدخل رقم الطالب"
-                value={quickId}
-                onChange={(e) => setQuickId(e.target.value.toUpperCase())}
-                onKeyPress={handleKeyPress}
-                className="text-lg font-bold text-center"
-              />
-              <Button onClick={handleQuickAttendance} className="bg-green-600 hover:bg-green-700">
-                <Check className="h-4 w-4 ml-2" /> تسجيل
-              </Button>
-            </div>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-green-800"><Hash className="h-5 w-5" /> تسجيل سريع بالرقم</CardTitle></CardHeader>
+          <CardContent className="flex gap-2">
+            <Input ref={inputRef} type="text" placeholder="أدخل رقم الطالب" value={quickId} onChange={(e) => setQuickId(e.target.value.toUpperCase())} onKeyPress={handleKeyPress} />
+            <Button onClick={handleQuickAttendance} className="bg-green-600 hover:bg-green-700"><Check className="h-4 w-4 ml-2" /> تسجيل</Button>
           </CardContent>
         </Card>
 
         <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-800">
-              <QrCode className="h-5 w-5" />
-              مسح QR Code
-            </CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-purple-800"><QrCode className="h-5 w-5" /> مسح QR Code</CardTitle></CardHeader>
           <CardContent>
             <Button onClick={startQRScanning} disabled={isScanning} className="w-full bg-purple-600 hover:bg-purple-700">
               {isScanning ? "جاري المسح..." : "بدء المسح"}
@@ -310,23 +273,6 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
           </CardContent>
         </Card>
       </div>
-
-      {/* البحث */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            البحث عن الطلاب
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Input
-            placeholder="ابحث بالاسم أو رقم الطالب..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </CardContent>
-      </Card>
 
       {/* إحصائيات */}
       <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50">
@@ -367,9 +313,10 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
           ) : (
             <div className="space-y-4">
               {filteredStudents.map((student) => {
-                const uniqueKey = student.stdcode
+                const uniqueKey = student._id
                 const attendance = todayAttendance[uniqueKey]
                 const isPresent = !!attendance
+                const placeName = places.find(p => p._id === student.place)?.name || "-"
                 return (
                   <Card key={uniqueKey} className={`transition-all duration-300 ${isPresent ? "border-green-200 bg-green-50" : "hover:shadow-md"}`}>
                     <CardContent className="p-4 space-y-2">
@@ -383,11 +330,9 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
                             <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
                               <span>رقم: {student?.stdcode || "??"}</span>
                               <span>{getGradeText(student?.grade)}</span>
-                              <span>السنتر: {student?.center || "-"}</span>
+                              <span>السنتر: {placeName}</span>
                               <span>الحضور: {student?.attendanceCount || 0} مرة</span>
                             </div>
-
-                            {/* حقل الملاحظة */}
                             <Input
                               placeholder="أضف ملاحظة..."
                               value={notes[uniqueKey] || ""}
@@ -395,7 +340,6 @@ const AttendanceSystem = ({ onMarkAttendance }) => {
                               className="mt-1 text-sm"
                               disabled={isPresent}
                             />
-
                             {attendance && (
                               <p className="text-xs text-gray-500 mt-1">
                                 تم التسجيل الساعة: {attendance.time}

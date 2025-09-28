@@ -4,7 +4,9 @@ const attendanceSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   date: { type: Date, default: Date.now },
   present: { type: Boolean, default: true },
-  note: { type: String }
+  note: { type: String },
+  weekStart: { type: Date, required: false }, // بداية الأسبوع
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("Attendance", attendanceSchema);

@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
-import { Progress } from "../ui/progress"
-import { Clock, CheckCircle, XCircle, Award, ArrowRight } from "lucide-react"
+import { Clock } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
 const ExamInterface = ({ exam, onBack, onComplete, student }) => {
@@ -15,7 +14,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [result, setResult] = useState(null)
   const { toast } = useToast()
-  
+
   // ⏱️ مؤقت الامتحان
   useEffect(() => {
     if (timeLeft > 0 && !isSubmitted) {
@@ -50,33 +49,10 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
     }
   }
 
-  // 🚀 Submit امتحان
   const handleSubmit = async () => {
     const token = localStorage.getItem("authToken")
     const studentId = student?._id
-    
-    console.log("handleSubmit function is running!");
-    console.log("Token:", token);
-    console.log("Student ID:", studentId);
-
-    // 🛑 فحص التوكن وبيانات الطالب قبل الإرسال
-    if (!token) {
-      toast({
-        title: "خطأ في الاتصال",
-        description: "لا يوجد توكن مصادقة. يرجى تسجيل الدخول مرة أخرى.",
-        variant: "destructive"
-      })
-      return
-    }
-
-    if (!studentId) {
-      toast({
-        title: "خطأ في البيانات",
-        description: "بيانات الطالب غير متوفرة. يرجى تحديث الصفحة.",
-        variant: "destructive"
-      })
-      return
-    }
+    if (!token || !studentId) return
 
     const score = answers.reduce((total, answer, index) => {
       return answer === exam.questions[index].correctAnswer ? total + 1 : total
@@ -84,7 +60,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
 
     const examResult = {
       examId: exam._id,
-      studentId: studentId,
+      studentId,
       score,
       totalQuestions: exam.questions.length,
       answers,
@@ -92,113 +68,39 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
     }
 
     try {
-      // 🟢 حفظ النتيجة في الباك إند
       const res = await fetch(`${process.env.REACT_APP_API_URL}/exam-results`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    examId: exam._id,
-    studentId,
-    answers,
-    completedAt: new Date().toISOString(),
-  }),
-});
-
-      if (!res.ok) throw new Error("⚠️ فشل تسجيل النتيجة في السيرفر")
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ examId: exam._id, studentId, answers, completedAt: new Date().toISOString() }),
+      })
+      if (!res.ok) throw new Error("فشل تسجيل النتيجة في السيرفر")
       const saved = await res.json()
 
       setResult(saved)
       setIsSubmitted(true)
       onComplete(saved)
 
-      toast({
-        title: "✅ تم إرسال الامتحان",
-        description: `حصلت على ${score} من ${exam.questions.length}`
-      })
+      toast({ title: "✅ تم إرسال الامتحان", description: `حصلت على ${score} من ${exam.questions.length}` })
     } catch (err) {
-      toast({
-        title: "خطأ",
-        description: err.message,
-        variant: "destructive"
-      })
+      toast({ title: "خطأ", description: err.message, variant: "destructive" })
     }
   }
 
-  const getScorePercentage = () => result ? Math.round((result.score / result.totalQuestions) * 100) : 0
-
-  const getGradeColor = () => {
-    const p = getScorePercentage()
-    if (p >= 85) return "text-green-600"
-    if (p >= 70) return "text-blue-600"
-    if (p >= 60) return "text-yellow-600"
-    return "text-red-600"
-  }
-
-  const getGradeText = () => {
-    const p = getScorePercentage()
-    if (p >= 85) return "ممتاز"
-    if (p >= 70) return "جيد جداً"
-    if (p >= 60) return "جيد"
-    return "يحتاج تحسين"
-  }
+  const currentQ = exam.questions[currentQuestion]
 
   // ================= عرض النتيجة بعد التسليم =================
   if (isSubmitted && result) {
     return (
       <div className="space-y-6" dir="rtl">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowRight className="h-4 w-4" />
-            العودة
-          </Button>
-          <h1 className="text-2xl font-bold">نتيجة الامتحان</h1>
-        </div>
-
+        <Button variant="ghost" size="sm" onClick={onBack}>العودة</Button>
         <Card className="border-green-200 bg-green-50">
-          <CardHeader className="text-center">
-            <CardTitle className="flex items-center justify-center gap-2 text-green-800">
-              <Award className="h-6 w-6" />
-              تم إكمال الامتحان بنجاح
-            </CardTitle>
-            <CardDescription>{exam.title}</CardDescription>
+          <CardHeader>
+            <CardTitle>تم إكمال الامتحان بنجاح</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center">
-              <div className={`text-6xl font-bold ${getGradeColor()}`}>
-                {result.score}/{result.totalQuestions}
-              </div>
-              <div className={`text-2xl font-semibold ${getGradeColor()}`}>{getScorePercentage()}%</div>
-              <Badge className={`mt-2 bg-blue-600 text-white`}>
-                {getGradeText()}
-              </Badge>
+            <div className="text-center text-2xl font-bold">
+              {result.score}/{result.totalQuestions} - {Math.round((result.score / result.totalQuestions) * 100)}%
             </div>
-          </CardContent>
-        </Card>
-
-        {/* مراجعة الإجابات */}
-        <Card>
-          <CardHeader><CardTitle>مراجعة الإجابات</CardTitle></CardHeader>
-          <CardContent>
-            {exam.questions.map((q, index) => {
-              const userAnswer = result.answers[index]
-              const isCorrect = userAnswer === q.correctAnswer
-              return (
-                <div key={q._id || index} className="p-2 border rounded mb-2">
-                  <p className="font-semibold">س {index+1}: {q.question}</p>
-                  {q.options.map((opt, i) => (
-                    <div key={i} className={`px-2 py-1 rounded ${
-                      i === q.correctAnswer ? "bg-green-100 text-green-800" :
-                      i === userAnswer && !isCorrect ? "bg-red-100 text-red-800" : "bg-gray-50"
-                    }`}>
-                      {opt}
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
           </CardContent>
         </Card>
       </div>
@@ -206,28 +108,33 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   }
 
   // ================= عرض الامتحان قبل التسليم =================
-  const currentQ = exam.questions[currentQuestion]
-  const progress = ((currentQuestion + 1) / exam.questions.length) * 100
-
   return (
     <div className="space-y-6" dir="rtl">
-      <div className="flex justify-between items-center">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowRight className="h-4 w-4" /> العودة
-        </Button>
-        <div className="flex items-center gap-3">
+      {/* Top Bar: أرقام الأسئلة + المؤقت */}
+      <div className="flex justify-between items-center bg-white p-3 rounded shadow overflow-x-auto">
+        <div className="flex gap-2">
+          {exam.questions.map((q, i) => (
+            <Button key={i}
+              size="sm"
+              className={`${currentQuestion===i ? "bg-blue-600 text-white" : ""}`}
+              onClick={() => setCurrentQuestion(i)}
+            >
+              {i+1}
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
           <Clock className="text-red-600" /> {formatTime(timeLeft)}
           <Badge>{currentQuestion+1} من {exam.questions.length}</Badge>
         </div>
       </div>
 
-      <Progress value={progress} />
-
+      {/* السؤال والخيارات */}
       <Card>
         <CardHeader><CardTitle>السؤال {currentQuestion+1}</CardTitle></CardHeader>
-        <CardContent>
-          <p>{currentQ.question}</p>
-          <div className="space-y-2">
+        <CardContent className="flex flex-col md:flex-row gap-4">
+          <p className="flex-1">{currentQ.question}</p>
+          <div className="flex-1 flex flex-col gap-2">
             {currentQ.options.map((opt, i) => (
               <div key={i}
                 className={`p-2 border rounded cursor-pointer ${answers[currentQuestion]===i ? "bg-blue-100 border-blue-600" : "hover:bg-blue-50"}`}
@@ -240,6 +147,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
         </CardContent>
       </Card>
 
+      {/* أزرار التنقل */}
       <div className="flex justify-between">
         <Button variant="outline" onClick={handlePrevious} disabled={currentQuestion===0}>السابق</Button>
         {currentQuestion === exam.questions.length-1 ? (

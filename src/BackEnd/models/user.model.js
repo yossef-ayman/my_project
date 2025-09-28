@@ -13,7 +13,8 @@ const userSchema = new Schema(
     role: { type: String, enum: ['student', 'admin'], required: true },
     stdcode: { type: String, required: false, unique: true },
     place: { type: mongoose.Schema.Types.ObjectId, ref: "Place", required: false }, // <-- هنا
-    present: { type: Boolean, default: false }
+    present: { type: Boolean, default: false },
+    presentCount: { type: Number, default: 0 },
   },
   {
     timestamps: true,

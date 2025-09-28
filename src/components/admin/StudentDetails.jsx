@@ -72,8 +72,6 @@ export default function StudentDetails() {
         </p>
       </div>
 
-
-
       {/* نتائج الامتحانات */}
       <div className="bg-white shadow rounded-xl p-4">
         <h2 className="text-xl font-semibold mb-2">📌 نتائج الامتحانات</h2>
