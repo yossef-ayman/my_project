@@ -6,11 +6,18 @@ export default function StudentDetails() {
   const { id } = useParams(); // 👈 هنا بناخد ID من الرابط
   const [student, setStudent] = useState(null);
   const [attendance, setAttendance] = useState([]);
-  const [exams, setExams] = useState([]);
+  const [examResults, setExamResults] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("authToken");
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    // 👮‍♂️ لو المستخدم مش أدمن
+    if (!token || user.role !== "admin") {
+      window.location.href = "/"; // أو ممكن تعمل صفحة Forbidden
+      return;
+    }
 
     async function fetchData() {
       try {
@@ -19,26 +26,21 @@ export default function StudentDetails() {
           `${process.env.REACT_APP_API_URL}/students/${id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        if (!studentRes.ok) throw new Error(`HTTP ${studentRes.status}`);
         const studentData = await studentRes.json();
         setStudent(studentData);
 
-        // 📌 سجل الحضور
-        const attendanceRes = await fetch(
-          `${process.env.REACT_APP_API_URL}/Attendance/student/${id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const attendanceData = await attendanceRes.json();
-        setAttendance(attendanceData);
+
 
         // 📌 نتائج الامتحانات
-        const examsRes = await fetch(
-      `${process.env.REACT_APP_API_URL}/exam-results/student/${id}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const examsData = await examsRes.json();
-    console.log("📌 Exam results response:", examsData); // 👈 اطبع الرد هنا
-    setExams(examsData);
-  
+        const examResultsRes = await fetch(
+          `${process.env.REACT_APP_API_URL}/exam-results/student/${id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!examResultsRes.ok) throw new Error(`HTTP ${examResultsRes.status}`);
+        const examResultsData = await examResultsRes.json();
+        console.log("📌 Raw Exam Results:", examResultsData);
+        setExamResults(examResultsData);
       } catch (err) {
         console.error("❌ خطأ في تحميل البيانات", err);
       } finally {
@@ -62,36 +64,26 @@ export default function StudentDetails() {
         <p>البريد: {student.email}</p>
         <p>📱 الطالب: {student.phone || "—"}</p>
         <p>👨‍👩‍👦 ولي الأمر: {student.parentPhone || "—"}</p>
-        <p>📅 التسجيل: {student.registrationDate}</p>
+        <p>
+          📅 التسجيل:{" "}
+          {student.registrationDate
+            ? new Date(student.registrationDate).toLocaleDateString()
+            : "—"}
+        </p>
       </div>
 
-      {/* سجل الحضور */}
-      <div className="bg-white shadow rounded-xl p-4">
-        <h2 className="text-xl font-semibold mb-2">📌 سجل الحضور</h2>
-        {attendance.length > 0 ? (
-          <ul className="list-disc pl-5 space-y-1">
-            {attendance.map((a, i) => (
-              <li key={i}>
-                {new Date(a.date).toLocaleDateString()} -{" "}
-                {a.status ? "✔️ حاضر" : "❌ غائب"}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>لا يوجد سجل حضور</p>
-        )}
-      </div>
+
 
       {/* نتائج الامتحانات */}
       <div className="bg-white shadow rounded-xl p-4">
         <h2 className="text-xl font-semibold mb-2">📌 نتائج الامتحانات</h2>
-        {exams.length > 0 ? (
+        {examResults.length > 0 ? (
           <ul className="list-disc pl-5 space-y-1">
-            {exams.map((e, i) => (
+            {examResults.map((result, i) => (
               <li key={i}>
-                {e.exam?.title || "امتحان"} (
-                {e.exam?.subject || "مادة غير معروفة"}) - الدرجة: {e.score}/
-                {e.totalQuestions}
+                {result.exam?.title || "امتحان"} (
+                {result.exam?.subject || "مادة غير معروفة"}) - الدرجة:{" "}
+                {result.score}/{result.totalQuestions}
               </li>
             ))}
           </ul>

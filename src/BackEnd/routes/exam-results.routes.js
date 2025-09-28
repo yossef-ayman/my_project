@@ -14,7 +14,7 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
     if (!exam) return res.status(404).json({ error: "الامتحان غير موجود" });
 
     // 🟢 احسب السكور هنا
-    let score = 0;
+    let score = 0; 
     exam.questions.forEach((q, index) => {
       const correct = Number(q.correctAnswer); // تأكد انه رقم
       if (answers[index] === correct) {
@@ -39,11 +39,12 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
 });
 
 
-// 📌 استرجاع نتائج طالب محدد
-router.get("/student/:id", auth(["student", "admin"]), async (req, res) => {
+// 📌 استرجاع نتائج طالب محدد (Admins فقط)
+router.get("/student/:id", auth(["admin"]), async (req, res) => {
   try {
     const results = await ExamResult.find({ student: req.params.id })
-      .populate("exam", "title subject date")
+      .populate("exam", "title subject date")           // بيانات الامتحان
+      .populate("student", "name stdcode grade email")  // بيانات الطالب
       .sort({ completedAt: -1 });
 
     res.json(results);
@@ -51,6 +52,7 @@ router.get("/student/:id", auth(["student", "admin"]), async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // 📌 استرجاع نتائج امتحان محدد (للامن فقط)
 router.get("/exam/:examId", auth(["admin"]), async (req, res) => {
