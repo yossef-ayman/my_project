@@ -15,6 +15,11 @@ const examSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   duration: Number,
   questions: [questionSchema],
+  passingScore: {
+    type: Number,
+    required: [true, "درجة النجاح مطلوبة."]
+    // تم حذف كتلة validate من هذا المكان
+  },
   isActive: { type: Boolean, default: false }
 }, { timestamps: true })
 

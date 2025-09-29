@@ -61,80 +61,115 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
     }
   }
 
+  // ---------------------------------------------
+  // 1. تسجيل النتيجة (handleSubmit)
+  // ---------------------------------------------
   const handleSubmit = async () => {
     if (isSubmitted) return
     setIsSubmitted(true)
 
-    // 1. حساب الدرجة والتفاصيل
-    let score = 0
-    const detailedQuestions = exam.questions.map((q, index) => {
-      const isCorrect = answers[index] === q.correctAnswer
-      if (isCorrect) score += 1
-      return {
-        questionText: q.question,
-        options: q.options,
-        selectedAnswer: answers[index],
-        correctAnswer: q.correctAnswer,
-        isCorrect: isCorrect,
-      }
-    })
-
-    const passingScore = exam.passingScore || (exam.questions.length / 2)
-    const isPassed = score >= passingScore
-
-    const examResult = {
-      examId: exam._id,
-      studentId: student?._id,
-      score,
-      totalQuestions: exam.questions.length,
-      isPassed,
-      detailedQuestions,
-      completedAt: new Date().toISOString(),
-    }
-
     try {
+      const token = localStorage.getItem("authToken")
+      const studentId = student?._id
+      if (!token || !studentId) {
+        toast({
+          title: "خطأ",
+          description: "المستخدم غير مصدق أو بيانات الطالب مفقودة",
+          variant: "destructive",
+        })
+        setIsSubmitted(false)
+        return
+      }
+
+      let score = 0
+      const normalizedAnswers = []
+      const detailedQuestions = exam.questions.map((q, index) => {
+        const rawAns = answers[index]
+        const selectedIndex =
+          typeof rawAns === "number" && !isNaN(rawAns) ? rawAns : null
+
+        // ▼▼▼ هذا هو التعديل الأساسي ▼▼▼
+        // نحول `q.correctAnswer` إلى رقم بشكل آمن ومباشر
+        const correctIndex = Number.parseInt(q.correctAnswer, 10);
+        // ▲▲▲ نهاية التعديل ▲▲▲
+
+        const isCorrect =
+          selectedIndex !== null && !isNaN(correctIndex)
+            ? selectedIndex === correctIndex
+            : false
+
+        if (isCorrect) score += 1
+        normalizedAnswers.push(selectedIndex)
+
+        return {
+          questionId: q._id,
+          questionText: q.question ?? "",
+          options: q.options ?? [],
+          selectedIndex,
+          correctIndex: !isNaN(correctIndex) ? correctIndex : null, // تأكد من عدم إرسال NaN
+          isCorrect,
+        }
+      })
+
+      const passingScore = Number(exam.passingScore) || exam.questions.length / 2
+      const isPassed = score >= passingScore
+
+      const payload = {
+        exam: exam._id,
+        student: student?._id,
+        score,
+        totalQuestions: exam.questions.length,
+        answers: normalizedAnswers,
+        completedAt: new Date().toISOString(),
+        detailedQuestions,
+        isPassed,
+      }
+
       const res = await fetch(`${process.env.REACT_APP_API_URL}/exam-results`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          examId: exam._id,
-          studentId: student?._id,
-          score: score,
-          answers: answers,
-          completedAt: examResult.completedAt,
-        }),
+        body: JSON.stringify(payload),
       })
 
-      if (!res.ok) throw new Error("فشل تسجيل النتيجة في السيرفر")
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`فشل تسجيل النتيجة في السيرفر (${res.status}): ${errorText}`)
+      }
 
-      setResult(examResult)
-      onComplete(examResult)
+      const savedResult = await res.json()
+      setResult(savedResult)
+      setIsSubmitted(true)
+      onComplete(savedResult)
 
       toast({
-        title: isPassed ? "🎉 تهانينا! نجحت." : "⚠️ تحتاج للمزيد من الدراسة.",
-        description: `حصلت على ${score} من ${exam.questions.length}.`,
-        variant: isPassed ? "default" : "destructive",
+        title: savedResult.isPassed ? "🎉 تهانينا! نجحت." : "⚠️ محاولة غير موفقة",
+        description: `حصلت على ${savedResult.score} من ${savedResult.totalQuestions}.`,
+        variant: savedResult.isPassed ? "default" : "destructive",
       })
     } catch (err) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" })
+      console.error("handleSubmit error:", err)
+      toast({
+        title: "خطأ",
+        description: err.message || "حدث خطأ غير متوقع",
+        variant: "destructive",
+      })
       setIsSubmitted(false)
-      onBack()
     }
   }
 
+  // ---------------------------------------------
+  // 2. مراجعة الإجابات
+  // ---------------------------------------------
   const currentQ = exam.questions[currentQuestion]
 
-  // -------------------------------------------------------------
-  // 3. عرض مراجعة الإجابات (للناجحين فقط)
-  // -------------------------------------------------------------
   if (isSubmitted && result && isReviewing) {
     const currentReviewQ = result.detailedQuestions[currentQuestion]
     const isQCorrect = currentReviewQ.isCorrect
-    const correctIndex = currentReviewQ.correctAnswer
-    const selectedIndex = currentReviewQ.selectedAnswer
+    const correctIndex = currentReviewQ.correctIndex
+    const selectedIndex = currentReviewQ.selectedIndex
 
     return (
       <div className="space-y-6 max-w-3xl mx-auto" dir="rtl">
@@ -144,7 +179,9 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
 
         <Card
           className={`shadow-2xl ${
-            isQCorrect ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"
+            isQCorrect
+              ? "border-green-500 bg-green-50"
+              : "border-red-500 bg-red-50"
           }`}
         >
           <CardHeader className="border-b">
@@ -154,11 +191,14 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
               ) : (
                 <XCircle className="h-6 w-6 text-red-600" />
               )}
-              مراجعة السؤال {currentQuestion + 1} ({isQCorrect ? "صحيح" : "خطأ"})
+              مراجعة السؤال {currentQuestion + 1} (
+              {isQCorrect ? "صحيح" : "خطأ"})
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            <p className="text-lg font-bold mb-4 text-gray-800">{currentReviewQ.questionText}</p>
+            <p className="text-lg font-bold mb-4 text-gray-800">
+              {currentReviewQ.questionText}
+            </p>
             <div className="flex flex-col gap-3">
               {currentReviewQ.options.map((opt, i) => (
                 <div
@@ -187,7 +227,11 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
             </div>
           </CardContent>
           <CardFooter className="flex justify-between border-t pt-4">
-            <Button variant="outline" onClick={handlePrevious} disabled={currentQuestion === 0}>
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentQuestion === 0}
+            >
               <ChevronRight className="h-4 w-4 ml-1" /> السؤال السابق
             </Button>
             {currentQuestion === result.detailedQuestions.length - 1 ? (
@@ -205,24 +249,34 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
     )
   }
 
-  // -------------------------------------------------------------
-  // 2. عرض النتيجة بعد التسليم
-  // -------------------------------------------------------------
+  // ---------------------------------------------
+  // 3. عرض النتيجة بعد التسليم
+  // ---------------------------------------------
   if (isSubmitted && result) {
-    const percentage = Math.round((result.score / result.totalQuestions) * 100)
+    const percentage = Math.round(
+      (result.score / result.totalQuestions) * 100
+    )
     const passed = result.isPassed
-    const passingScore = exam.passingScore || exam.questions.length / 2
+    const passingScore = Number(exam.passingScore) || exam.questions.length / 2
 
     return (
       <div className="space-y-6 max-w-md mx-auto" dir="rtl">
         <Card
-          className={`shadow-2xl ${passed ? "border-green-500 bg-white" : "border-red-500 bg-white"}`}
+          className={`shadow-2xl ${
+            passed ? "border-green-500 bg-white" : "border-red-500 bg-white"
+          }`}
         >
           <CardHeader className={`border-b ${passed ? "bg-green-50" : "bg-red-50"}`}>
-            <CardTitle className={`text-2xl font-bold ${passed ? "text-green-800" : "text-red-800"}`}>
+            <CardTitle
+              className={`text-2xl font-bold ${
+                passed ? "text-green-800" : "text-red-800"
+              }`}
+            >
               {passed ? "🎉 مبروك! نجاح باهر" : "⚠️ محاولة غير موفقة"}
             </CardTitle>
-            <p className="text-sm text-gray-600">نتيجة الامتحان: {exam.title}</p>
+            <p className="text-sm text-gray-600">
+              نتيجة الامتحان: {exam.title}
+            </p>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-center">
@@ -264,7 +318,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   }
 
   // -------------------------------------------------------------
-  // 1. عرض الامتحان (الواجهة الجديدة)
+  // 4. عرض الامتحان (الواجهة الجديدة)
   // -------------------------------------------------------------
   return (
     <div className="space-y-6 max-w-4xl mx-auto" dir="rtl">
@@ -397,3 +451,4 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
 }
 
 export default ExamInterface
+

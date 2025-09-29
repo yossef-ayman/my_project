@@ -30,29 +30,29 @@ const ExamManager = ({ onBack }) => {
   const [selectedExamId, setSelectedExamId] = useState(null)
   const [editingQuestionId, setEditingQuestionId] = useState(null)
 
-  const [newExam, setNewExam] = useState({ title: "", subject: "", description: "", date: "", duration: "" })
+  // 1. تحديث الحالة الابتدائية لإضافة درجة النجاح
+  const [newExam, setNewExam] = useState({ title: "", subject: "", description: "", date: "", duration: "", passingScore: "" })
   const [newQuestion, setNewQuestion] = useState({ question: "", image: "", options: ["", "", "", ""], correctAnswer: 0 })
 
-  // 📌 تحميل الامتحانات
-const token = localStorage.getItem("authToken");
-
-useEffect(() => {
-  fetch(`${process.env.REACT_APP_API_URL}/exams`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(res => {
-      if (!res.ok) throw new Error("غير مصرح لك بالدخول");
-      return res.json();
+  const token = localStorage.getItem("authToken");
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_API_URL}/exams`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
-    .then(setExams)
-    .catch(err => {
-      toast({ title: "⚠️ خطأ", description: err.message, variant: "destructive" })
-    });
-}, [token]);
+      .then(res => {
+        if (!res.ok) throw new Error("غير مصرح لك بالدخول");
+        return res.json();
+      })
+      .then(setExams)
+      .catch(err => {
+        toast({ title: "⚠️ خطأ", description: err.message, variant: "destructive" })
+      });
+  }, [token]);
 
   // 📌 إضافة امتحان
   const handleAddExam = async () => {
-    if (!newExam.title || !newExam.subject || !newExam.date) {
+    // التأكد من أن درجة النجاح ليست فارغة
+    if (!newExam.title || !newExam.subject || !newExam.date || !newExam.passingScore) {
       toast({ title: "خطأ", description: "يرجى ملء كل الحقول المطلوبة", variant: "destructive" })
       return
     }
@@ -65,16 +65,24 @@ useEffect(() => {
         },
         body: JSON.stringify(newExam),
       })
+      
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.message || "فشل إضافة الامتحان")
+      }
+
       const data = await res.json()
       setExams([data, ...exams])
-      setNewExam({ title: "", subject: "", description: "", date: "", duration: "" })
+      // إعادة تعيين الحالة لتشمل درجة النجاح
+      setNewExam({ title: "", subject: "", description: "", date: "", duration: "", passingScore: "" })
       setShowAddForm(false)
       toast({ title: "✅ تم", description: `تمت إضافة الامتحان ${data.title}` })
     } catch (err) {
-      toast({ title: "خطأ", description: "تعذر إضافة الامتحان", variant: "destructive" })
+      toast({ title: "خطأ", description: err.message, variant: "destructive" })
     }
   }
 
+  // ... (بقية الدوال تبقى كما هي بدون تغيير)
   // 📌 إضافة / تعديل سؤال
   const handleAddOrUpdateQuestion = async () => {
     if (!newQuestion.question || newQuestion.options.some(opt => !opt.trim())) {
@@ -147,6 +155,7 @@ useEffect(() => {
     }
   }
 
+
   return (
     <div className="p-4 space-y-6" dir="rtl">
       {/* الهيدر */}
@@ -178,12 +187,29 @@ useEffect(() => {
             <Input type="date" value={newExam.date} onChange={e => setNewExam({ ...newExam, date: e.target.value })} />
             <Input placeholder="المدة بالدقائق" type="number"
               value={newExam.duration} onChange={e => setNewExam({ ...newExam, duration: e.target.value })} />
+            
+            {/* 2. إضافة حقل درجة النجاح في الواجهة */}
+            <div>
+              <Label htmlFor="passingScore">درجة النجاح</Label>
+              <Input
+                id="passingScore"
+                placeholder="مثال: 5"
+                type="number"
+                value={newExam.passingScore}
+                onChange={e => setNewExam({ ...newExam, passingScore: e.target.value })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                يجب أن تكون درجة النجاح نصف عدد الأسئلة أو أقل (سيتم التحقق من ذلك عند إضافة الأسئلة).
+              </p>
+            </div>
+            
             <Button onClick={handleAddExam}>إضافة</Button>
           </CardContent>
         </Card>
       )}
 
-      {/* إضافة/تعديل سؤال */}
+      {/* ... (بقية الواجهة تبقى كما هي بدون تغيير) */}
+       {/* إضافة/تعديل سؤال */}
       {showQuestionForm && selectedExamId && (
         <Card>
           <CardHeader>
@@ -193,15 +219,17 @@ useEffect(() => {
             <Textarea placeholder="السؤال" value={newQuestion.question}
               onChange={e => setNewQuestion({ ...newQuestion, question: e.target.value })} />
             {newQuestion.options.map((opt, i) => (
-              <div key={i} className="flex gap-2">
-                <input type="radio" checked={newQuestion.correctAnswer === i}
+              <div key={i} className="flex gap-2 items-center">
+                <input type="radio" id={`opt-${i}`} name="correctAnswer" checked={newQuestion.correctAnswer === i}
                   onChange={() => setNewQuestion({ ...newQuestion, correctAnswer: i })} />
-                <Input placeholder={`خيار ${i+1}`} value={opt}
-                  onChange={e => {
-                    const options = [...newQuestion.options]
-                    options[i] = e.target.value
-                    setNewQuestion({ ...newQuestion, options })
-                  }} />
+                <Label htmlFor={`opt-${i}`} className="flex-grow">
+                  <Input placeholder={`خيار ${i + 1}`} value={opt}
+                    onChange={e => {
+                      const options = [...newQuestion.options]
+                      options[i] = e.target.value
+                      setNewQuestion({ ...newQuestion, options })
+                    }} />
+                </Label>
               </div>
             ))}
             <Button onClick={handleAddOrUpdateQuestion}>{editingQuestionId ? "تعديل" : "إضافة"}</Button>
@@ -217,32 +245,39 @@ useEffect(() => {
             <CardDescription>{exam.subject}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <Badge>{new Date(exam.date).toLocaleDateString("ar-EG")}</Badge>
-              <Badge>{exam.questions.length} سؤال</Badge>
-              <Badge className={exam.isActive ? "bg-green-500" : "bg-gray-400"}>
+              <Badge variant="secondary">{exam.duration || 'N/A'} دقيقة</Badge>
+              <Badge variant="secondary">{exam.questions.length} سؤال</Badge>
+              <Badge variant="outline">النجاح: {exam.passingScore}</Badge>
+              <Badge className={exam.isActive ? "bg-green-500 text-white" : "bg-gray-400 text-white"}>
                 {exam.isActive ? "نشط" : "متوقف"}
               </Badge>
-              <Button onClick={() => toggleExamStatus(exam._id)} size="sm">تبديل الحالة</Button>
+              <Button onClick={() => toggleExamStatus(exam._id)} size="sm" variant="outline">تبديل الحالة</Button>
             </div>
 
-            {exam.questions.map((q, i) => (
-              <div key={q._id} className="border p-2 rounded mt-2">
-                <p>{i+1}. {q.question}</p>
-                <ul>
-                  {q.options.map((opt, j) => (
-                    <li key={j} className={q.correctAnswer === j ? "font-bold text-blue-600" : ""}>
-                      {opt}
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex gap-2 mt-1">
-                  <Button onClick={() => handleEditQuestion(q, exam._id)} size="xs">✏️</Button>
-                  <Button onClick={() => handleDeleteQuestion(q._id, exam._id)} size="xs" variant="destructive">🗑️</Button>
+            <div className="mt-4 space-y-2">
+              {exam.questions.map((q, i) => (
+                <div key={q._id} className="border p-3 rounded-md bg-gray-50">
+                  <p className="font-semibold">{i + 1}. {q.question}</p>
+                  <ul className="list-disc pr-5 mt-1 text-sm">
+                    {q.options.map((opt, j) => (
+                      <li key={j} className={q.correctAnswer === j ? "font-bold text-blue-600" : "text-gray-700"}>
+                        {opt}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-2 mt-2">
+                    <Button onClick={() => handleEditQuestion(q, exam._id)} size="sm" variant="outline">✏️ تعديل</Button>
+                    <Button onClick={() => handleDeleteQuestion(q._id, exam._id)} size="sm" variant="destructive">🗑️ حذف</Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            <Button onClick={() => { setSelectedExamId(exam._id); setShowQuestionForm(true) }} size="sm" className="mt-2">إضافة سؤال</Button>
+              ))}
+            </div>
+            <Button onClick={() => { setSelectedExamId(exam._id); setShowQuestionForm(true); setEditingQuestionId(null); setNewQuestion({ question: "", image: "", options: ["", "", "", ""], correctAnswer: 0 }); }} size="sm" className="mt-4">
+              <Plus className="h-4 w-4 ml-1"/>
+              إضافة سؤال جديد
+            </Button>
           </CardContent>
         </Card>
       ))}
