@@ -123,6 +123,9 @@ const StudentPortal = ({ user = {}, student = {} }) => {
 
   const generateQR = () => setQrGenerated(true)
 
+  // ✅ التعديل هنا: حساب إجمالي عدد مرات الحضور التي سجلت كـ 'حاضر'
+  const totalPresentCount = attendanceRecords.filter(record => record.present).length
+
   if (currentView === "exam" && selectedExam) {
     return (
       <ExamInterface
@@ -170,7 +173,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                 </div>
                 <div>
                   <CardTitle className="text-2xl font-bold text-blue-800">
-                    مرحباً {user?.name || "يوسف"}
+                    مرحباً {user?.name }
                   </CardTitle>
                   <CardDescription className="text-sm font-medium text-purple-600 mt-1">
                     أهلاً بك في منصة أستاذ الاستاذ 
@@ -183,23 +186,34 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                 <div className="space-y-1">
                   <p className="text-sm text-gray-600 font-semibold">رقم الطالب</p>
                   <Badge variant="outline" className="text-lg font-bold border-blue-300 text-blue-700 mt-1">
-                    {student?.customId || "ST001"}
+                    {/* ✅ تم التعديل إلى stdcode */}
+                    {student?.stdcode || "—"} 
                   </Badge>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-gray-600 font-semibold">إجمالي الحضور</p>
+                  {/* ✅ التعديل هنا: استخدام totalPresentCount بدلاً من student?.attendanceCount */}
                   <Badge className="bg-green-500 text-white text-lg font-bold mt-1">
-                    {student?.attendanceCount || 0} مرة
+                    {totalPresentCount} مرة
                   </Badge>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-gray-600 font-semibold">حالة هذا الأسبوع</p>
+                  {/* ✅ التعديل هنا: تحسين شرط التحقق لليوم الحالي (التاريخ الكامل) */}
                   <Badge
                     className={`text-sm font-bold mt-1 ${
-                      attendanceRecords.some(record => new Date(record.date).getDay() === new Date().getDay() && record.present) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
+                      attendanceRecords.some(record => {
+                        const recordDate = new Date(record.date).toDateString()
+                        const todayDate = new Date().toDateString()
+                        return recordDate === todayDate && record.present
+                      }) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
                     }`}
                   >
-                    {attendanceRecords.some(record => new Date(record.date).getDay() === new Date().getDay() && record.present) ? "تم الحضور" : "لم تحضر بعد"}
+                    {attendanceRecords.some(record => {
+                        const recordDate = new Date(record.date).toDateString()
+                        const todayDate = new Date().toDateString()
+                        return recordDate === todayDate && record.present
+                      }) ? "تم الحضور" : "لم تحضر بعد"}
                   </Badge>
                 </div>
               </div>
