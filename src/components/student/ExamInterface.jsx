@@ -70,61 +70,18 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
 
     try {
       const token = localStorage.getItem("authToken")
-      const studentId = student?._id
-      if (!token || !studentId) {
-        toast({
-          title: "خطأ",
-          description: "المستخدم غير مصدق أو بيانات الطالب مفقودة",
-          variant: "destructive",
-        })
-        setIsSubmitted(false)
-        return
+      if (!token || !student?._id) {
+        throw new Error("المستخدم غير مسجل بشكل صحيح.");
       }
 
-      let score = 0
-      const normalizedAnswers = []
-      const detailedQuestions = exam.questions.map((q, index) => {
-        const rawAns = answers[index]
-        const selectedIndex =
-          typeof rawAns === "number" && !isNaN(rawAns) ? rawAns : null
-
-        // ▼▼▼ هذا هو التعديل الأساسي ▼▼▼
-        // نحول `q.correctAnswer` إلى رقم بشكل آمن ومباشر
-        const correctIndex = Number.parseInt(q.correctAnswer, 10);
-        // ▲▲▲ نهاية التعديل ▲▲▲
-
-        const isCorrect =
-          selectedIndex !== null && !isNaN(correctIndex)
-            ? selectedIndex === correctIndex
-            : false
-
-        if (isCorrect) score += 1
-        normalizedAnswers.push(selectedIndex)
-
-        return {
-          questionId: q._id,
-          questionText: q.question ?? "",
-          options: q.options ?? [],
-          selectedIndex,
-          correctIndex: !isNaN(correctIndex) ? correctIndex : null, // تأكد من عدم إرسال NaN
-          isCorrect,
-        }
-      })
-
-      const passingScore = Number(exam.passingScore) || exam.questions.length / 2
-      const isPassed = score >= passingScore
-
+      // 1. إعداد حمولة بيانات آمنة تحتوي على الإجابات فقط
       const payload = {
         exam: exam._id,
-        student: student?._id,
-        score,
-        totalQuestions: exam.questions.length,
-        answers: normalizedAnswers,
-        completedAt: new Date().toISOString(),
-        detailedQuestions,
-        isPassed,
+        student: student._id,
+        answers: answers.map(ans => (ans === -1 ? null : ans)) // إرسال الإجابات فقط
       }
 
+      // 2. إرسال الإجابات إلى السيرفر
       const res = await fetch(`${process.env.REACT_APP_API_URL}/exam-results`, {
         method: "POST",
         headers: {
@@ -139,16 +96,23 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
         throw new Error(`فشل تسجيل النتيجة في السيرفر (${res.status}): ${errorText}`)
       }
 
+      // 3. استقبال النتيجة الكاملة والمصححة من السيرفر
       const savedResult = await res.json()
       setResult(savedResult)
       setIsSubmitted(true)
-      onComplete(savedResult)
-
+      
+      // 4. عرض رسالة بناءً على النتيجة التي أرسلها السيرفر
       toast({
         title: savedResult.isPassed ? "🎉 تهانينا! نجحت." : "⚠️ محاولة غير موفقة",
         description: `حصلت على ${savedResult.score} من ${savedResult.totalQuestions}.`,
         variant: savedResult.isPassed ? "default" : "destructive",
       })
+
+      // 5. استدعاء onComplete لإعلام المكون الأب
+      if (onComplete) {
+        onComplete(savedResult)
+      }
+
     } catch (err) {
       console.error("handleSubmit error:", err)
       toast({

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
+const auth = require("../middlewares/auth");
 
 // 🔹 Get all students
 router.get("/", async (req, res) => {

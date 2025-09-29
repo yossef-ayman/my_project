@@ -10,7 +10,7 @@ import CenterSettings from "./components/admin/CenterSettings"
 import StudentManager from "./components/admin/StudentManager"
 import AttendanceSystem from "./components/admin/AttendanceSystem"
 import AwardsManager from "./components/admin/AwardsManager"
-import StudentPortal from "./components/StudentPortal"
+import StudentPortal from "./components/student/StudentPortal"
 import Login from "./components/Login"
 
 import { ToastContainer } from "react-toastify"
