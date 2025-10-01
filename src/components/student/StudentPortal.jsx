@@ -16,6 +16,9 @@ import {
   QrCode,
   Download,
   Share,
+  Archive,
+  CheckCircle,
+  XCircle
 } from "lucide-react"
 import ExamInterface from "./ExamInterface"
 
@@ -33,7 +36,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
   const [examResults, setExamResults] = useState([]);
   const [news, setNews] = useState([]);
   const [awards, setAwards] = useState([]);
-  const [loading, setLoading] = useState(true); // حالة لتتبع التحميل
+  const [loading, setLoading] = useState(true);
   const [showAllNews, setShowAllNews] = useState(false);
   const [qrGenerated, setQrGenerated] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -59,11 +62,10 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                 headers: { Authorization: `Bearer ${token}` }
             }).then(res => res.json());
             
-            // انتظر حتى يصل الطلبان معًا
             const [examsData, resultsData] = await Promise.all([examsPromise, resultsPromise]);
 
-            setExams(examsData);
-            setExamResults(resultsData);
+            setExams(Array.isArray(examsData) ? examsData : []);
+            setExamResults(Array.isArray(resultsData) ? resultsData : []);
 
         } catch (err) {
             console.error("خطأ في تحميل البيانات الأساسية:", err);
@@ -113,20 +115,18 @@ const StudentPortal = ({ user = {}, student = {} }) => {
     setCurrentView("exam");
   }
 
-  const handleExamComplete = (result) => {
-    setExamResults((prevResults) => {
-      const existingResultIndex = prevResults.findIndex(r => r.exam === result.exam);
-      if (existingResultIndex !== -1) {
-        const updatedResults = [...prevResults];
-        updatedResults[existingResultIndex] = result;
-        return updatedResults;
-      }
-      return [...prevResults, result];
-    });
-  }
+  const handleExamComplete = (newlySavedResult) => {
+    // أضف النتيجة الجديدة التي عادت من السيرفر إلى قائمة النتائج
+    setExamResults((prevResults) => [newlySavedResult, ...prevResults]);
+
+    // ارجع إلى لوحة التحكم
+    setCurrentView("dashboard");
+    setSelectedExam(null);
+  };
 
   const getExamResult = (examId) => {
-    return examResults.find((r) => r.exam === examId);
+    // يتم البحث الآن في النتائج الموجودة بالفعل
+    return examResults.find((r) => r.exam?._id === examId);
   }
 
   const getPriorityColor = (priority) => {
@@ -157,7 +157,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
         exam={selectedExam}
         onBack={() => { setCurrentView("dashboard"); setSelectedExam(null) }}
         onComplete={handleExamComplete}
-        student={student}
+        student={student} // يتم تمريره لكن الباك إند سيستخدم ID من التوكن
       />
     )
   }
@@ -193,6 +193,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
 
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="space-y-6" dir="rtl">
+          {/* Card: Welcome */}
           <Card className="rounded-2xl shadow-xl border-2 border-transparent bg-gradient-to-r from-indigo-50 to-purple-50">
             <CardHeader className="p-6 pb-4">
               <div className="flex items-center gap-4">
@@ -226,25 +227,26 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                 <div className="space-y-1">
                   <p className="text-sm text-gray-600 font-semibold">حالة اليوم</p>
                    <Badge
-                      className={`text-sm font-bold mt-1 ${
-                        attendanceRecords.some(record => {
-                          const recordDate = new Date(record.date).toDateString()
-                          const todayDate = new Date().toDateString()
-                          return recordDate === todayDate && record.present
-                        }) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
-                      }`}
-                    >
-                      {attendanceRecords.some(record => {
-                          const recordDate = new Date(record.date).toDateString()
-                          const todayDate = new Date().toDateString()
-                          return recordDate === todayDate && record.present
-                        }) ? "تم الحضور" : "لم تحضر بعد"}
-                    </Badge>
+                     className={`text-sm font-bold mt-1 ${
+                       attendanceRecords.some(record => {
+                         const recordDate = new Date(record.date).toDateString()
+                         const todayDate = new Date().toDateString()
+                         return recordDate === todayDate && record.present
+                       }) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
+                     }`}
+                   >
+                     {attendanceRecords.some(record => {
+                         const recordDate = new Date(record.date).toDateString()
+                         const todayDate = new Date().toDateString()
+                         return recordDate === todayDate && record.present
+                       }) ? "تم الحضور" : "لم تحضر بعد"}
+                   </Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Card: Attendance */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
@@ -278,6 +280,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
             </CardContent>
           </Card>
           
+          {/* Card: Available Exams */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
@@ -293,7 +296,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
               ) : (
                 <div className="space-y-4">
                   {exams.filter((exam) => exam.isActive).map((exam) => {
-                    const result = getExamResult(exam._id)
+                    const result = getExamResult(exam._id);
                     return (
                       <div key={exam._id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center shadow-sm hover:shadow-md transition-all duration-200">
                         <div>
@@ -305,14 +308,10 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                           </div>
                         </div>
                         <div>
-                          {result && result.isPassed ? (
-                            <Badge className="bg-green-500 text-white text-md py-1 px-3">
-                              تم الامتحان بنجاح
+                          {result ? (
+                            <Badge className="bg-green-500 text-white text-md py-2 px-4 cursor-not-allowed">
+                              تم الحل
                             </Badge>
-                          ) : result && !result.isPassed ? (
-                            <Button onClick={() => handleStartExam(exam)} variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50">
-                              إعادة المحاولة
-                            </Button>
                           ) : (
                             <Button onClick={() => handleStartExam(exam)} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
                               <Play className="h-4 w-4" /> بدء الامتحان
@@ -322,6 +321,49 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                       </div>
                     )
                   })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card: Exam History */}
+          <Card className="rounded-xl shadow-lg">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
+                <Archive className="h-6 w-6 text-indigo-500" /> سجل الامتحانات
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                نتائج الامتحانات السابقة التي قمت بحلها
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              {examResults.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8 text-lg">لم تقم بحل أي امتحانات بعد.</p>
+              ) : (
+                <div className="space-y-4">
+                  {examResults.map((result) => (
+                    <div key={result._id} className="bg-gray-50 border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+                      <div className="flex-grow">
+                        <h3 className="font-semibold text-lg text-gray-800">{result.exam?.title || "امتحان غير متاح"}</h3>
+                        <p className="text-gray-500 text-sm mt-1">{result.exam?.subject || "مادة غير معروفة"}</p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          {new Date(result.completedAt).toLocaleDateString("ar-EG", {
+                            year: "numeric", month: "long", day: "numeric", hour: '2-digit', minute:'2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4 w-full sm:w-auto">
+                         <div className="text-center">
+                            <p className="text-sm text-gray-500">الدرجة</p>
+                            <span className="font-bold text-lg text-blue-700">{result.score}/{result.totalQuestions}</span>
+                         </div>
+                         <Badge className={`${result.isPassed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"} text-md py-2 px-3 flex items-center gap-1.5`}>
+                           {result.isPassed ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                           {result.isPassed ? "ناجح" : "راسب"}
+                         </Badge>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

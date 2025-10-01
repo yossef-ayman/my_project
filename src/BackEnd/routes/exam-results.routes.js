@@ -62,15 +62,16 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
 });
 // ▲▲▲ نهاية الجزء المعدل ▲▲▲
 router.get("/my-results", auth(["student"]), async (req, res) => {
-    try {
-        // req.user._id يأتي من التوكن بعد عملية تسجيل الدخول
-        const results = await ExamResult.find({ student: req.user._id })
-            .select("exam score totalQuestions isPassed"); // نختار الحقول المهمة فقط
+  try {
+    // req.user._id يأتي من التوكن بعد عملية تسجيل الدخول
+    const results = await ExamResult.find({ student: req.user._id })
+      .populate("exam", "title subject") // 👈 إضافة: لجلب اسم ومادة الامتحان
+      .sort({ completedAt: -1 }); // 👈 إضافة: لترتيب النتائج من الأحدث للأقدم
 
-        res.json(results);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /exam-results/lock
