@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { Button } from "./ui/button"
-import { Badge } from "./ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
+import { Button } from "../ui/button"
+import { Badge } from "../ui/badge"
 import {
   FileText,
   Award,
@@ -16,49 +16,79 @@ import {
   QrCode,
   Download,
   Share,
+  Archive,
+  CheckCircle,
+  XCircle
 } from "lucide-react"
-import ExamInterface from "./student/ExamInterface"
+import ExamInterface from "./ExamInterface"
+
+// مكون بسيط لعرض رسالة التحميل
+const LoadingScreen = () => (
+    <div className="flex justify-center items-center h-screen">
+        <p className="text-xl font-semibold">جاري تحميل بيانات الطالب...</p>
+    </div>
+);
 
 const StudentPortal = ({ user = {}, student = {} }) => {
-  const [currentView, setCurrentView] = useState("dashboard")
-  const [selectedExam, setSelectedExam] = useState(null)
-  const [exams, setExams] = useState([])
-  const [examResults, setExamResults] = useState([])
-  const [news, setNews] = useState([])
-  const [awards, setAwards] = useState([])
-  const [showAllNews, setShowAllNews] = useState(false)
-  const [qrGenerated, setQrGenerated] = useState(false)
+  const [currentView, setCurrentView] = useState("dashboard");
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [exams, setExams] = useState([]);
+  const [examResults, setExamResults] = useState([]);
+  const [news, setNews] = useState([]);
+  const [awards, setAwards] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAllNews, setShowAllNews] = useState(false);
+  const [qrGenerated, setQrGenerated] = useState(false);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
 
-  // ✅ حالة جديدة: لتخزين بيانات الحضور
-  const [attendanceRecords, setAttendanceRecords] = useState([])
+  const token = localStorage.getItem("authToken");
+  const apiBaseUrl = process.env.REACT_APP_API_URL;
 
-  const token = localStorage.getItem("authToken")
-  const apiBaseUrl = process.env.REACT_APP_API_URL
+  // دمج طلبات البيانات الأساسية (الامتحانات والنتائج) في useEffect واحد
+  useEffect(() => {
+    if (!token) {
+        setLoading(false);
+        return;
+    };
 
-  // ✅ useEffect جديد: لجلب سجلات الحضور
+    const fetchCoreData = async () => {
+        setLoading(true);
+        try {
+            const examsPromise = fetch(`${apiBaseUrl}/exams/active`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).then(res => res.json());
+
+            const resultsPromise = fetch(`${apiBaseUrl}/exam-results/my-results`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).then(res => res.json());
+            
+            const [examsData, resultsData] = await Promise.all([examsPromise, resultsPromise]);
+
+            setExams(Array.isArray(examsData) ? examsData : []);
+            setExamResults(Array.isArray(resultsData) ? resultsData : []);
+
+        } catch (err) {
+            console.error("خطأ في تحميل البيانات الأساسية:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    fetchCoreData();
+
+  }, [token, apiBaseUrl]);
+
+  // useEffects للبيانات غير الحرجة (يمكن تحميلها بشكل منفصل)
   useEffect(() => {
     if (!student?._id || !token) return
     fetch(`${apiBaseUrl}/attendance/student/${student._id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-      
     .then(res => res.json())
-      .then(data => {
-        setAttendanceRecords(data)
-      })
-      .catch(err => console.error("خطأ في تحميل سجلات الحضور:", err))
-  }, [student, token, apiBaseUrl])
-
-  useEffect(() => {
-    if (!token) return
-    fetch(`${apiBaseUrl}/exams/active`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(setExams)
-      .catch(err => console.error("خطأ تحميل الامتحانات:", err))
-  }, [token, apiBaseUrl])
-
+    .then(data => setAttendanceRecords(data))
+    .catch(err => console.error("خطأ في تحميل سجلات الحضور:", err))
+  }, [student, token, apiBaseUrl]);
+  
   useEffect(() => {
     if (!token) return
     fetch(`${apiBaseUrl}/news`, {
@@ -67,7 +97,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
       .then(res => res.json())
       .then(setNews)
       .catch(err => console.error("خطأ تحميل الأخبار:", err))
-  }, [token, apiBaseUrl])
+  }, [token, apiBaseUrl]);
 
   useEffect(() => {
     if (!student?._id || !token) return
@@ -77,30 +107,26 @@ const StudentPortal = ({ user = {}, student = {} }) => {
       .then(res => res.json())
       .then(setAwards)
       .catch(err => console.error("خطأ تحميل الجوائز:", err))
-  }, [student, token, apiBaseUrl])
+  }, [student, token, apiBaseUrl]);
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("examResults") || "[]")
-      setExamResults(Array.isArray(saved) ? saved : [])
-    } catch (err) {
-      console.error("خطأ قراءة نتائج الامتحانات:", err)
-    }
-  }, [])
 
   const handleStartExam = (exam) => {
-    setSelectedExam(exam)
-    setCurrentView("exam")
+    setSelectedExam(exam);
+    setCurrentView("exam");
   }
 
-  const handleExamComplete = (result) => {
-    setExamResults((prev) => [...prev, result])
-    const savedResults = JSON.parse(localStorage.getItem("examResults") || "[]")
-    localStorage.setItem("examResults", JSON.stringify([...savedResults, result]))
-  }
+  const handleExamComplete = (newlySavedResult) => {
+    // أضف النتيجة الجديدة التي عادت من السيرفر إلى قائمة النتائج
+    setExamResults((prevResults) => [newlySavedResult, ...prevResults]);
+
+    // ارجع إلى لوحة التحكم
+    setCurrentView("dashboard");
+    setSelectedExam(null);
+  };
 
   const getExamResult = (examId) => {
-    return examResults.find((r) => r.examId === examId)
+    // يتم البحث الآن في النتائج الموجودة بالفعل
+    return examResults.find((r) => r.exam?._id === examId);
   }
 
   const getPriorityColor = (priority) => {
@@ -122,8 +148,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
   }
 
   const generateQR = () => setQrGenerated(true)
-
-  // ✅ التعديل هنا: حساب إجمالي عدد مرات الحضور التي سجلت كـ 'حاضر'
+  
   const totalPresentCount = attendanceRecords.filter(record => record.present).length
 
   if (currentView === "exam" && selectedExam) {
@@ -132,14 +157,17 @@ const StudentPortal = ({ user = {}, student = {} }) => {
         exam={selectedExam}
         onBack={() => { setCurrentView("dashboard"); setSelectedExam(null) }}
         onComplete={handleExamComplete}
-        student={student}
+        student={student} // يتم تمريره لكن الباك إند سيستخدم ID من التوكن
       />
     )
   }
 
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Bar */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -151,9 +179,10 @@ const StudentPortal = ({ user = {}, student = {} }) => {
           <Button
             variant="ghost"
             onClick={() => {
-              localStorage.removeItem("user")
-              localStorage.removeItem("examResults")
-              window.location.href = "/"
+              localStorage.removeItem("authToken");
+              localStorage.removeItem("user");
+              localStorage.removeItem("student");
+              window.location.href = "/";
             }}
             className="flex items-center gap-2 text-gray-500 hover:bg-gray-100"
           >
@@ -164,7 +193,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
 
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="space-y-6" dir="rtl">
-          {/* Welcome Card */}
+          {/* Card: Welcome */}
           <Card className="rounded-2xl shadow-xl border-2 border-transparent bg-gradient-to-r from-indigo-50 to-purple-50">
             <CardHeader className="p-6 pb-4">
               <div className="flex items-center gap-4">
@@ -186,41 +215,38 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                 <div className="space-y-1">
                   <p className="text-sm text-gray-600 font-semibold">رقم الطالب</p>
                   <Badge variant="outline" className="text-lg font-bold border-blue-300 text-blue-700 mt-1">
-                    {/* ✅ تم التعديل إلى stdcode */}
                     {student?.stdcode || "—"} 
                   </Badge>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-gray-600 font-semibold">إجمالي الحضور</p>
-                  {/* ✅ التعديل هنا: استخدام totalPresentCount بدلاً من student?.attendanceCount */}
                   <Badge className="bg-green-500 text-white text-lg font-bold mt-1">
                     {totalPresentCount} مرة
                   </Badge>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-gray-600 font-semibold">حالة هذا الأسبوع</p>
-                  {/* ✅ التعديل هنا: تحسين شرط التحقق لليوم الحالي (التاريخ الكامل) */}
-                  <Badge
-                    className={`text-sm font-bold mt-1 ${
-                      attendanceRecords.some(record => {
-                        const recordDate = new Date(record.date).toDateString()
-                        const todayDate = new Date().toDateString()
-                        return recordDate === todayDate && record.present
-                      }) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
-                    }`}
-                  >
-                    {attendanceRecords.some(record => {
-                        const recordDate = new Date(record.date).toDateString()
-                        const todayDate = new Date().toDateString()
-                        return recordDate === todayDate && record.present
-                      }) ? "تم الحضور" : "لم تحضر بعد"}
-                  </Badge>
+                  <p className="text-sm text-gray-600 font-semibold">حالة اليوم</p>
+                   <Badge
+                     className={`text-sm font-bold mt-1 ${
+                       attendanceRecords.some(record => {
+                         const recordDate = new Date(record.date).toDateString()
+                         const todayDate = new Date().toDateString()
+                         return recordDate === todayDate && record.present
+                       }) ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
+                     }`}
+                   >
+                     {attendanceRecords.some(record => {
+                         const recordDate = new Date(record.date).toDateString()
+                         const todayDate = new Date().toDateString()
+                         return recordDate === todayDate && record.present
+                       }) ? "تم الحضور" : "لم تحضر بعد"}
+                   </Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* ✅ قسم جديد: سجل الحضور */}
+          {/* Card: Attendance */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
@@ -254,7 +280,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
             </CardContent>
           </Card>
           
-          {/* Exams Section */}
+          {/* Card: Available Exams */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
@@ -270,7 +296,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
               ) : (
                 <div className="space-y-4">
                   {exams.filter((exam) => exam.isActive).map((exam) => {
-                    const result = getExamResult(exam._id)
+                    const result = getExamResult(exam._id);
                     return (
                       <div key={exam._id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center shadow-sm hover:shadow-md transition-all duration-200">
                         <div>
@@ -283,7 +309,9 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                         </div>
                         <div>
                           {result ? (
-                            <Badge className="bg-green-500 text-white text-md py-1 px-3">تم الحل</Badge>
+                            <Badge className="bg-green-500 text-white text-md py-2 px-4 cursor-not-allowed">
+                              تم الحل
+                            </Badge>
                           ) : (
                             <Button onClick={() => handleStartExam(exam)} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
                               <Play className="h-4 w-4" /> بدء الامتحان
@@ -298,7 +326,49 @@ const StudentPortal = ({ user = {}, student = {} }) => {
             </CardContent>
           </Card>
 
-          {/* News Section */}
+          {/* Card: Exam History */}
+          <Card className="rounded-xl shadow-lg">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800">
+                <Archive className="h-6 w-6 text-indigo-500" /> سجل الامتحانات
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                نتائج الامتحانات السابقة التي قمت بحلها
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              {examResults.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8 text-lg">لم تقم بحل أي امتحانات بعد.</p>
+              ) : (
+                <div className="space-y-4">
+                  {examResults.map((result) => (
+                    <div key={result._id} className="bg-gray-50 border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+                      <div className="flex-grow">
+                        <h3 className="font-semibold text-lg text-gray-800">{result.exam?.title || "امتحان غير متاح"}</h3>
+                        <p className="text-gray-500 text-sm mt-1">{result.exam?.subject || "مادة غير معروفة"}</p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          {new Date(result.completedAt).toLocaleDateString("ar-EG", {
+                            year: "numeric", month: "long", day: "numeric", hour: '2-digit', minute:'2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4 w-full sm:w-auto">
+                         <div className="text-center">
+                            <p className="text-sm text-gray-500">الدرجة</p>
+                            <span className="font-bold text-lg text-blue-700">{result.score}/{result.totalQuestions}</span>
+                         </div>
+                         <Badge className={`${result.isPassed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"} text-md py-2 px-3 flex items-center gap-1.5`}>
+                           {result.isPassed ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                           {result.isPassed ? "ناجح" : "راسب"}
+                         </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800"><Newspaper className="h-6 w-6 text-purple-500" /> الأخبار والإعلانات</CardTitle>
@@ -329,7 +399,6 @@ const StudentPortal = ({ user = {}, student = {} }) => {
             </CardContent>
           </Card>
 
-          {/* Awards Section */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800"><Award className="h-6 w-6 text-yellow-500" /> تكريماتي</CardTitle>
@@ -358,7 +427,6 @@ const StudentPortal = ({ user = {}, student = {} }) => {
             </CardContent>
           </Card>
 
-          {/* QR Code Section */}
           <Card className="rounded-xl border-purple-200 bg-purple-50 shadow-lg">
             <CardHeader className="border-b border-purple-100 pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-purple-800"><QrCode className="h-6 w-6 text-purple-600" /> QR Code الخاص بك</CardTitle>
@@ -372,7 +440,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                   <div className="w-48 h-48 mx-auto bg-white border-4 border-purple-500 rounded-lg flex items-center justify-center shadow-md">
                     <div>
                       <QrCode className="h-20 w-20 text-purple-600 mx-auto mb-2" />
-                      <p className="text-md font-semibold text-purple-600">{student?.stdcode || "—" }</p>
+                      <p className="text-md font-semibold text-purple-600">{student?.customId || "ST001"}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">

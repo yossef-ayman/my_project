@@ -1,3 +1,4 @@
+// ملف: /routes/examResults.js
 const express = require("express");
 const router = express.Router();
 const ExamResult = require("../models/examResult.model");
@@ -7,26 +8,29 @@ const Exam = require("../models/exam.model");
 // 📌 تسجيل نتيجة امتحان (الطالب)
 router.post("/", auth(["student", "admin"]), async (req, res) => {
   try {
-    const { examId, studentId, answers, completedAt } = req.body;
+    // 💡 التعديل هنا: استخدام 'exam' و 'student' لمطابقة الـ Frontend
+    const { exam, student, answers, completedAt } = req.body; 
 
     // 🟢 جيب الامتحان من الداتابيس
-    const exam = await Exam.findById(examId);
-    if (!exam) return res.status(404).json({ error: "الامتحان غير موجود" });
+    const foundExam = await Exam.findById(exam); 
+    if (!foundExam) return res.status(404).json({ error: "الامتحان غير موجود" });
 
-    // 🟢 احسب السكور هنا
+    // 🟢 احسب السكور هنا (لضمان أقصى درجات الأمان)
     let score = 0; 
-    exam.questions.forEach((q, index) => {
-      const correct = Number(q.correctAnswer); // تأكد انه رقم
-      if (answers[index] === correct) {
+    foundExam.questions.forEach((q, index) => {
+      // 💡 التأكد من تحويل الإجابة الصحيحة إلى رقم للمقارنة
+      const correct = Number(q.correctAnswer); 
+      if (answers[index] === correct) { 
         score++;
       }
     });
 
     const result = new ExamResult({
-      exam: examId,
-      student: studentId,
-      score,
-      totalQuestions: exam.questions.length,
+      // استخدام الحقول المستخرجة مباشرة
+      exam: exam,          
+      student: student,    
+      score, 
+      totalQuestions: foundExam.questions.length, 
       answers,
       completedAt: completedAt || new Date()
     });
@@ -34,16 +38,18 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
     await result.save();
     res.status(201).json(result);
   } catch (err) {
+    console.error("Error saving exam result:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /exam-results/lock
 router.post("/lock", auth(["student", "admin"]), async (req, res) => {
+  // ملاحظة: إذا كان الـ Frontend يرسل 'exam' و 'student' هنا أيضاً، يجب تعديل هذا السطر
   const { examId, studentId } = req.body;
   try {
     const result = await ExamResult.findOneAndUpdate(
-      { examId, studentId },
+      { exam: examId, student: studentId }, // التأكد من استخدام اسم الحقل في الـ Model
       { locked: true },
       { new: true, upsert: true }
     );
@@ -57,8 +63,8 @@ router.post("/lock", auth(["student", "admin"]), async (req, res) => {
 router.get("/student/:id", auth(["admin"]), async (req, res) => {
   try {
     const results = await ExamResult.find({ student: req.params.id })
-      .populate("exam", "title subject date")           // بيانات الامتحان
-      .populate("student", "name stdcode grade email")  // بيانات الطالب
+      .populate("exam", "title subject date")
+      .populate("student", "name stdcode grade email")
       .sort({ completedAt: -1 });
 
     res.json(results);
