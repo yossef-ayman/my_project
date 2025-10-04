@@ -1,13 +1,21 @@
+<<<<<<< HEAD
 // ملف: /routes/examResults.js
+=======
+// src/BackEnd/routes/examResult.routes.js
+>>>>>>> 92c9d6dee6806146e864613c390ec516cf17b43d
 const express = require("express");
 const router = express.Router();
 const ExamResult = require("../models/examResult.model");
 const auth = require("../middlewares/auth");
 const Exam = require("../models/exam.model");
+// لم نعد بحاجة لجلب موديل Exam هنا
+// const Exam = require("../models/exam.model");
 
+// ▼▼▼ هذا هو الجزء الذي تم تعديله بالكامل ▼▼▼
 // 📌 تسجيل نتيجة امتحان (الطالب)
 router.post("/", auth(["student", "admin"]), async (req, res) => {
   try {
+<<<<<<< HEAD
     // 💡 التعديل هنا: استخدام 'exam' و 'student' لمطابقة الـ Frontend
     const { exam, student, answers, completedAt } = req.body; 
 
@@ -21,10 +29,40 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
       // 💡 التأكد من تحويل الإجابة الصحيحة إلى رقم للمقارنة
       const correct = Number(q.correctAnswer); 
       if (answers[index] === correct) { 
+=======
+    // 1. استقبل إجابات الطالب والبيانات الأساسية فقط
+    const { exam: examId, student: studentId, answers } = req.body;
+
+    // 2. أحضر الامتحان كاملاً (مع الإجابات الصحيحة) من قاعدة البيانات
+    const exam = await Exam.findById(examId);
+    if (!exam) return res.status(404).json({ error: "الامتحان غير موجود" });
+
+    // 3. قم بحساب الدرجة وتفاصيل الأسئلة هنا في السيرفر
+    let score = 0;
+    const detailedQuestions = exam.questions.map((q, index) => {
+      const correctIndex = Number(q.correctAnswer);
+      const selectedIndex = answers[index];
+      const isCorrect = selectedIndex === correctIndex;
+
+      if (isCorrect) {
+>>>>>>> 92c9d6dee6806146e864613c390ec516cf17b43d
         score++;
       }
+
+      return {
+        questionId: q._id,
+        questionText: q.question,
+        options: q.options,
+        selectedIndex,
+        correctIndex,
+        isCorrect,
+      };
     });
 
+    // 4. حدد حالة النجاح بناءً على الدرجة المحسوبة
+    const isPassed = score >= exam.passingScore;
+
+    // 5. أنشئ مستند النتيجة الكامل
     const result = new ExamResult({
       // استخدام الحقول المستخرجة مباشرة
       exam: exam,          
@@ -32,11 +70,26 @@ router.post("/", auth(["student", "admin"]), async (req, res) => {
       score, 
       totalQuestions: foundExam.questions.length, 
       answers,
-      completedAt: completedAt || new Date()
+      isPassed,
+      detailedQuestions,
+      completedAt: new Date(),
     });
 
     await result.save();
-    res.status(201).json(result);
+    res.status(201).json(result); // أعد النتيجة الكاملة للواجهة الأمامية
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ▲▲▲ نهاية الجزء المعدل ▲▲▲
+router.get("/my-results", auth(["student"]), async (req, res) => {
+  try {
+    // req.user._id يأتي من التوكن بعد عملية تسجيل الدخول
+    const results = await ExamResult.find({ student: req.user._id })
+      .populate("exam", "title subject") // 👈 إضافة: لجلب اسم ومادة الامتحان
+      .sort({ completedAt: -1 }); // 👈 إضافة: لترتيب النتائج من الأحدث للأقدم
+
+    res.json(results);
   } catch (err) {
     console.error("Error saving exam result:", err);
     res.status(500).json({ error: err.message });
@@ -63,8 +116,13 @@ router.post("/lock", auth(["student", "admin"]), async (req, res) => {
 router.get("/student/:id", auth(["admin"]), async (req, res) => {
   try {
     const results = await ExamResult.find({ student: req.params.id })
+<<<<<<< HEAD
       .populate("exam", "title subject date")
       .populate("student", "name stdcode grade email")
+=======
+      .populate("exam", "title subject date")         // بيانات الامتحان
+      .populate("student", "name stdcode grade email")   // بيانات الطالب
+>>>>>>> 92c9d6dee6806146e864613c390ec516cf17b43d
       .sort({ completedAt: -1 });
 
     res.json(results);
