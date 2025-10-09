@@ -23,19 +23,36 @@ router.post("/register", async (req, res) => {
 
 // 🔹 Login
 router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Invalid email" });
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
+    }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Invalid password" });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ message: "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
+    }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user: { ...user.toObject(), password: undefined } });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+    // ✅ التصحيح: استخدم "_id" وأضف "name" للحمولة
+    const payload = {
+        _id: user._id,
+        name: user.name,
+        role: user.role
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
+    
+    // إرجاع بيانات المستخدم بدون كلمة المرور
+    const userToReturn = { ...user.toObject() };
+    delete userToReturn.password;
+
+    res.json({ token, user: userToReturn });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;

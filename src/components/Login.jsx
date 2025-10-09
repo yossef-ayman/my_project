@@ -41,7 +41,7 @@ const Login = ({ onLogin }) => {
 
         // ✅ خطوة جديدة: جلب بيانات الطالب بعد تسجيل الدخول بنجاح
         if (data.user.role === "student") {
-          const studentRes = await fetch(`${apiBaseUrl}/students/${data.user.email}`, {
+          const studentRes = await fetch(`${apiBaseUrl}/students/${data.user._id}`, {
             headers: { Authorization: `Bearer ${data.token}` },
           })
           const studentData = await studentRes.json()

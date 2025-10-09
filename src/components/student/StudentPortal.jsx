@@ -18,9 +18,11 @@ import {
   Share,
   Archive,
   CheckCircle,
-  XCircle
+  XCircle,
+  Eye
 } from "lucide-react"
 import ExamInterface from "./ExamInterface"
+import ExamReview from "./ExamReview" // سننشئ هذا المكون
 
 // مكون بسيط لعرض رسالة التحميل
 const LoadingScreen = () => (
@@ -32,8 +34,9 @@ const LoadingScreen = () => (
 const StudentPortal = ({ user = {}, student = {} }) => {
   const [currentView, setCurrentView] = useState("dashboard");
   const [selectedExam, setSelectedExam] = useState(null);
+  const [selectedResult, setSelectedResult] = useState(null); // جديد: لتخزين نتيجة المراجعة
   const [exams, setExams] = useState([]);
-  const [examResults, setExamResults] = useState([]);
+  const [examResult, setExamResult] = useState([]);
   const [news, setNews] = useState([]);
   const [awards, setAwards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,71 +47,63 @@ const StudentPortal = ({ user = {}, student = {} }) => {
   const token = localStorage.getItem("authToken");
   const apiBaseUrl = process.env.REACT_APP_API_URL;
 
-  // دمج طلبات البيانات الأساسية (الامتحانات والنتائج) في useEffect واحد
+  // دمج جميع طلبات البيانات في useEffect واحد لمنع التنافس
   useEffect(() => {
-    if (!token) {
+    if (!token || !student?._id) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchAllData = async () => {
+      setLoading(true);
+      try {
+        const [
+          examsResponse,
+          resultsResponse,
+          attendanceResponse,
+          newsResponse,
+          awardsResponse
+        ] = await Promise.all([
+          fetch(`${apiBaseUrl}/exams/active`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${apiBaseUrl}/exam-results/my-results`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${apiBaseUrl}/attendance/student/${student._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${apiBaseUrl}/news`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${apiBaseUrl}/awards/${student._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        // معالجة جميع الاستجابات
+        const examsData = await examsResponse.json();
+        const resultsData = await resultsResponse.json();
+        const attendanceData = await attendanceResponse.json();
+        const newsData = await newsResponse.json();
+        const awardsData = await awardsResponse.json();
+
+        // تحديث الحالات
+        setExams(Array.isArray(examsData) ? examsData : []);
+        setExamResult(Array.isArray(resultsData) ? resultsData : []);
+        setAttendanceRecords(Array.isArray(attendanceData) ? attendanceData : []);
+        setNews(Array.isArray(newsData) ? newsData : []);
+        setAwards(Array.isArray(awardsData) ? awardsData : []);
+
+      } catch (err) {
+        console.error("خطأ في تحميل البيانات:", err);
+      } finally {
         setLoading(false);
-        return;
+      }
     };
 
-    const fetchCoreData = async () => {
-        setLoading(true);
-        try {
-            const examsPromise = fetch(`${apiBaseUrl}/exams/active`, {
-                headers: { Authorization: `Bearer ${token}` }
-            }).then(res => res.json());
-
-            const resultsPromise = fetch(`${apiBaseUrl}/exam-results/my-results`, {
-                headers: { Authorization: `Bearer ${token}` }
-            }).then(res => res.json());
-            
-            const [examsData, resultsData] = await Promise.all([examsPromise, resultsPromise]);
-
-            setExams(Array.isArray(examsData) ? examsData : []);
-            setExamResults(Array.isArray(resultsData) ? resultsData : []);
-
-        } catch (err) {
-            console.error("خطأ في تحميل البيانات الأساسية:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    fetchCoreData();
-
-  }, [token, apiBaseUrl]);
-
-  // useEffects للبيانات غير الحرجة (يمكن تحميلها بشكل منفصل)
-  useEffect(() => {
-    if (!student?._id || !token) return
-    fetch(`${apiBaseUrl}/attendance/student/${student._id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(res => res.json())
-    .then(data => setAttendanceRecords(data))
-    .catch(err => console.error("خطأ في تحميل سجلات الحضور:", err))
-  }, [student, token, apiBaseUrl]);
-  
-  useEffect(() => {
-    if (!token) return
-    fetch(`${apiBaseUrl}/news`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(setNews)
-      .catch(err => console.error("خطأ تحميل الأخبار:", err))
-  }, [token, apiBaseUrl]);
-
-  useEffect(() => {
-    if (!student?._id || !token) return
-    fetch(`${apiBaseUrl}/awards/${student._id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(setAwards)
-      .catch(err => console.error("خطأ تحميل الجوائز:", err))
-  }, [student, token, apiBaseUrl]);
-
+    fetchAllData();
+  }, [token, apiBaseUrl, student?._id]);
 
   const handleStartExam = (exam) => {
     setSelectedExam(exam);
@@ -116,17 +111,28 @@ const StudentPortal = ({ user = {}, student = {} }) => {
   }
 
   const handleExamComplete = (newlySavedResult) => {
-    // أضف النتيجة الجديدة التي عادت من السيرفر إلى قائمة النتائج
-    setExamResults((prevResults) => [newlySavedResult, ...prevResults]);
-
+    // تحديث قائمة النتائج مع النتيجة الجديدة
+    setExamResult((prevResults) => [newlySavedResult, ...prevResults]);
+    
     // ارجع إلى لوحة التحكم
     setCurrentView("dashboard");
     setSelectedExam(null);
   };
 
+  // التحقق مما إذا كان الطالب قد امتحن هذا الامتحان مسبقاً
+  const hasTakenExam = (examId) => {
+    return examResult.some((result) => result.exam?._id === examId);
+  }
+
   const getExamResult = (examId) => {
-    // يتم البحث الآن في النتائج الموجودة بالفعل
-    return examResults.find((r) => r.exam?._id === examId);
+    return examResult.find((r) => r.Exam?._id === examId);
+  }
+
+  // دالة لفتح مراجعة الامتحان
+  const handleReviewExam = (result) => {
+    setSelectedResult(result);
+    setSelectedExam(result.exam); // نحتاج بيانات الامتحان للمراجعة
+    setCurrentView("exam-review");
   }
 
   const getPriorityColor = (priority) => {
@@ -151,13 +157,29 @@ const StudentPortal = ({ user = {}, student = {} }) => {
   
   const totalPresentCount = attendanceRecords.filter(record => record.present).length
 
+  // عرض واجهة الامتحان
   if (currentView === "exam" && selectedExam) {
     return (
       <ExamInterface
         exam={selectedExam}
         onBack={() => { setCurrentView("dashboard"); setSelectedExam(null) }}
         onComplete={handleExamComplete}
-        student={student} // يتم تمريره لكن الباك إند سيستخدم ID من التوكن
+        student={student}
+      />
+    )
+  }
+
+  // عرض واجهة مراجعة الامتحان
+  if (currentView === "exam-review" && selectedResult && selectedExam) {
+    return (
+      <ExamReview
+        result={selectedResult}
+        exam={selectedExam}
+        onBack={() => { 
+          setCurrentView("dashboard"); 
+          setSelectedResult(null);
+          setSelectedExam(null);
+        }}
       />
     )
   }
@@ -296,7 +318,9 @@ const StudentPortal = ({ user = {}, student = {} }) => {
               ) : (
                 <div className="space-y-4">
                   {exams.filter((exam) => exam.isActive).map((exam) => {
+                    const hasTaken = hasTakenExam(exam._id);
                     const result = getExamResult(exam._id);
+                    
                     return (
                       <div key={exam._id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center shadow-sm hover:shadow-md transition-all duration-200">
                         <div>
@@ -308,7 +332,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                           </div>
                         </div>
                         <div>
-                          {result ? (
+                          {hasTaken ? (
                             <Badge className="bg-green-500 text-white text-md py-2 px-4 cursor-not-allowed">
                               تم الحل
                             </Badge>
@@ -337,11 +361,11 @@ const StudentPortal = ({ user = {}, student = {} }) => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              {examResults.length === 0 ? (
+              {examResult.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8 text-lg">لم تقم بحل أي امتحانات بعد.</p>
               ) : (
                 <div className="space-y-4">
-                  {examResults.map((result) => (
+                  {examResult.map((result) => (
                     <div key={result._id} className="bg-gray-50 border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
                       <div className="flex-grow">
                         <h3 className="font-semibold text-lg text-gray-800">{result.exam?.title || "امتحان غير متاح"}</h3>
@@ -358,9 +382,17 @@ const StudentPortal = ({ user = {}, student = {} }) => {
                             <span className="font-bold text-lg text-blue-700">{result.score}/{result.totalQuestions}</span>
                          </div>
                          <Badge className={`${result.isPassed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"} text-md py-2 px-3 flex items-center gap-1.5`}>
-                           {result.isPassed ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                           {result.isPassed ? "ناجح" : "راسب"}
-                         </Badge>
+                          {result.isPassed ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                          {result.isPassed ? "ناجح" : "راسب"}
+                        </Badge>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleReviewExam(result)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="h-4 w-4" /> مراجعة
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -369,6 +401,7 @@ const StudentPortal = ({ user = {}, student = {} }) => {
             </CardContent>
           </Card>
 
+          {/* باقي المكونات (الأخبار، التكريمات، QR Code) */}
           <Card className="rounded-xl shadow-lg">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-800"><Newspaper className="h-6 w-6 text-purple-500" /> الأخبار والإعلانات</CardTitle>

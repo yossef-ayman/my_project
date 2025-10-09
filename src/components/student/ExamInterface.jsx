@@ -5,28 +5,28 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../ui/card
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
 import { Progress } from "../ui/progress"
-import { Clock, CheckCircle, XCircle, ChevronLeft, ChevronRight, List } from "lucide-react"
+import { Clock, CheckCircle, XCircle, ChevronLeft, ChevronRight, List, Eye } from "lucide-react"
 import { useToast } from "../../hooks/use-toast"
 
-const ExamInterface = ({ exam, onBack, onComplete, student }) => {
+const ExamInterface = ({ exam, onBack, onComplete, student, isReviewMode = false, existingResult = null }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [answers, setAnswers] = useState(new Array(exam.questions.length).fill(-1))
-  const [timeLeft, setTimeLeft] = useState(Number.parseInt(exam.duration) * 60)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [result, setResult] = useState(null)
-  const [isReviewing, setIsReviewing] = useState(false)
+  const [answers, setAnswers] = useState(isReviewMode && existingResult ? existingResult.answers : new Array(exam.questions.length).fill(-1))
+  const [timeLeft, setTimeLeft] = useState(isReviewMode ? 0 : Number.parseInt(exam.duration) * 60)
+  const [isSubmitted, setIsSubmitted] = useState(isReviewMode)
+  const [result, setResult] = useState(isReviewMode ? existingResult : null)
+  const [isReviewing, setIsReviewing] = useState(isReviewMode)
   const { toast } = useToast()
 
   const answeredCount = useMemo(() => answers.filter(a => a !== -1).length, [answers])
   const totalQuestions = exam.questions.length
   const progressValue = (answeredCount / totalQuestions) * 100
 
-  // ⏱️ مؤقت الامتحان
+  // ⏱️ مؤقت الامتحان (فقط في وضع الامتحان العادي)
   useEffect(() => {
-    if (timeLeft > 0 && !isSubmitted) {
+    if (timeLeft > 0 && !isSubmitted && !isReviewMode) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
       return () => clearTimeout(timer)
-    } else if (timeLeft === 0 && !isSubmitted) {
+    } else if (timeLeft === 0 && !isSubmitted && !isReviewMode) {
       handleSubmit()
       toast({
         title: "انتهى الوقت",
@@ -34,7 +34,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
         variant: "destructive",
       })
     }
-  }, [timeLeft, isSubmitted])
+  }, [timeLeft, isSubmitted, isReviewMode])
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60)
@@ -43,7 +43,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   }
 
   const handleAnswerSelect = (answerIndex) => {
-    if (isSubmitted) return
+    if (isSubmitted || isReviewMode) return
     const newAnswers = [...answers]
     newAnswers[currentQuestion] = answerIndex
     setAnswers(newAnswers)
@@ -65,7 +65,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   // 1. تسجيل النتيجة (handleSubmit)
   // ---------------------------------------------
   const handleSubmit = async () => {
-    if (isSubmitted) return
+    if (isSubmitted || isReviewMode) return
     setIsSubmitted(true)
 
     try {
@@ -129,8 +129,9 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   // ---------------------------------------------
   const currentQ = exam.questions[currentQuestion]
 
-  if (isSubmitted && result && isReviewing) {
-    const currentReviewQ = result.detailedQuestions[currentQuestion]
+  // إذا كنا في وضع المراجعة أو عرض النتيجة مع المراجعة
+  if ((isSubmitted && result && isReviewing) || (isReviewMode && isReviewing)) {
+    const currentReviewQ = result ? result.detailedQuestions[currentQuestion] : existingResult.detailedQuestions[currentQuestion]
     const isQCorrect = currentReviewQ.isCorrect
     const correctIndex = currentReviewQ.correctIndex
     const selectedIndex = currentReviewQ.selectedIndex
@@ -198,7 +199,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
             >
               <ChevronRight className="h-4 w-4 ml-1" /> السؤال السابق
             </Button>
-            {currentQuestion === result.detailedQuestions.length - 1 ? (
+            {currentQuestion === (result ? result.detailedQuestions.length - 1 : existingResult.detailedQuestions.length - 1) ? (
               <Button className="bg-blue-600 hover:bg-blue-700" onClick={onBack}>
                 إنهاء المراجعة
               </Button>
@@ -216,7 +217,7 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
   // ---------------------------------------------
   // 3. عرض النتيجة بعد التسليم
   // ---------------------------------------------
-  if (isSubmitted && result) {
+  if (isSubmitted && result && !isReviewing) {
     const percentage = Math.round(
       (result.score / result.totalQuestions) * 100
     )
@@ -261,17 +262,15 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3 border-t pt-4">
-            {passed && (
-              <Button
-                onClick={() => {
-                  setIsReviewing(true)
-                  setCurrentQuestion(0)
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                مراجعة الإجابات الصحيحة
-              </Button>
-            )}
+            <Button
+              onClick={() => {
+                setIsReviewing(true)
+                setCurrentQuestion(0)
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Eye className="h-4 w-4" /> مراجعة الإجابات الصحيحة والخاطئة
+            </Button>
             <Button onClick={onBack} variant="outline" className="w-full">
               العودة للوحة التحكم
             </Button>
@@ -415,4 +414,3 @@ const ExamInterface = ({ exam, onBack, onComplete, student }) => {
 }
 
 export default ExamInterface
-

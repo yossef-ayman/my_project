@@ -4,97 +4,122 @@ const router = express.Router();
 const ExamResult = require("../models/examResult.model");
 const auth = require("../middlewares/auth");
 const Exam = require("../models/exam.model");
-// لم نعد بحاجة لجلب موديل Exam هنا
-// const Exam = require("../models/exam.model");
 
-// ▼▼▼ هذا هو الجزء الذي تم تعديله بالكامل ▼▼▼
-// 📌 تسجيل نتيجة امتحان (الطالب)
-router.post("/", auth(["student", "admin"]), async (req, res) => {
-  try {
-    // 1. استقبل إجابات الطالب والبيانات الأساسية فقط
-    const { exam: examId, student: studentId, answers } = req.body;
+// ▼▼▼ تسجيل نتيجة امتحان (الطالب) - النسخة الآمنة ▼▼▼
+router.post("/", auth(["student"]), async (req, res) => {
+  try {
+    // 🔒 SECURITY FIX: تجاهل studentId من الـ body واستخدم ID الطالب من التوكن الموثوق فقط
+    const studentIdFromToken = req.user._id;
+    const { exam: examId, answers } = req.body;
 
-    // 2. أحضر الامتحان كاملاً (مع الإجابات الصحيحة) من قاعدة البيانات
-    const exam = await Exam.findById(examId);
-    if (!exam) return res.status(404).json({ error: "الامتحان غير موجود" });
+    // ✅ التحقق أولاً باستخدام الـ ID الآمن من التوكن
+    const existingResult = await ExamResult.findOne({ 
+      exam: examId, 
+      student: studentIdFromToken 
+    });
 
-    // 3. قم بحساب الدرجة وتفاصيل الأسئلة هنا في السيرفر
-    let score = 0;
-    const detailedQuestions = exam.questions.map((q, index) => {
-      const correctIndex = Number(q.correctAnswer);
-      const selectedIndex = answers[index];
-      const isCorrect = selectedIndex === correctIndex;
+    if (existingResult) {
+      // ✅ FIX: استخدام Status Code 409 (Conflict) فهو أدق + تصحيح رسالة الخطأ
+      return res.status(409).json({ 
+        error: "لقد قمت بأداء هذا الامتحان مسبقاً ولا يمكنك إعادته." 
+      });
+    }
 
-      if (isCorrect) {
-        score++;
-      }
+    const exam = await Exam.findById(examId);
+    if (!exam) return res.status(404).json({ error: "الامتحان غير موجود" });
 
-      return {
-        questionId: q._id,
-        questionText: q.question,
-        options: q.options,
-        selectedIndex,
-        correctIndex,
-        isCorrect,
-      };
-    });
+    // ... (حساب الدرجة والتفاصيل كما هو)
+    let score = 0;
+    const detailedQuestions = exam.questions.map((q, index) => {
+      const correctIndex = Number(q.correctAnswer);
+      const selectedIndex = answers[index];
+      const isCorrect = selectedIndex === correctIndex;
+      if (isCorrect) score++;
+      return {
+        questionId: q._id, questionText: q.question, options: q.options,
+        selectedIndex, correctIndex, isCorrect,
+      };
+    });
+    const isPassed = score >= exam.passingScore;
 
-    // 4. حدد حالة النجاح بناءً على الدرجة المحسوبة
-    const isPassed = score >= exam.passingScore;
+    const result = new ExamResult({
+      exam: examId,
+      student: studentIdFromToken, // 🔒 SECURITY FIX: حفظ النتيجة باستخدام الـ ID الآمن
+      score, totalQuestions: exam.questions.length, answers,
+      isPassed, detailedQuestions, completedAt: new Date(),
+    });
 
-    // 5. أنشئ مستند النتيجة الكامل
-    const result = new ExamResult({
-      exam: examId,
-      student: studentId,
-      score,
-      totalQuestions: exam.questions.length,
-      answers,
-      isPassed,
-      detailedQuestions,
-      completedAt: new Date(),
-    });
+    await result.save();
+    
+    const populatedResult = await ExamResult.findById(result._id)
+      .populate("exam", "title subject duration passingScore");
+    
+    res.status(201).json(populatedResult);
 
-    await result.save();
-    res.status(201).json(result); // أعد النتيجة الكاملة للواجهة الأمامية
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) {
+    console.error("Error in exam result submission:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
-// ▲▲▲ نهاية الجزء المعدل ▲▲▲
+
+// ▼▼▼ استرجاع نتائج الطالب - (الكود الأصلي كان صحيحًا) ▼▼▼
 router.get("/my-results", auth(["student"]), async (req, res) => {
-  try {
-    // req.user._id يأتي من التوكن بعد عملية تسجيل الدخول
-    const results = await ExamResult.find({ student: req.user._id })
-      .populate("exam", "title subject") // 👈 إضافة: لجلب اسم ومادة الامتحان
-      .sort({ completedAt: -1 }); // 👈 إضافة: لترتيب النتائج من الأحدث للأقدم
-
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  try {
+    const studentId = req.user._id;
+    const results = await ExamResult.find({ student: studentId })
+      .populate("exam", "title subject duration passingScore")
+      .sort({ completedAt: -1 });
+    res.json(results);
+  } catch (err) {
+    console.error("Error fetching student results:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// POST /exam-results/lock
+// ▼▼▼ التحقق من حالة الامتحان للطالب - (الكود الأصلي كان صحيحًا) ▼▼▼
+router.get("/check-exam-status/:examId", auth(["student"]), async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const studentId = req.user._id;
+
+    const existingResult = await ExamResult.findOne({ 
+      exam: examId, 
+      student: studentId 
+    }).populate("exam", "title subject");
+
+    if (existingResult) {
+      return res.json({ hasTaken: true, result: existingResult });
+    }
+    res.json({ hasTaken: false });
+  } catch (err) {
+    console.error("Error checking exam status:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// باقي الرواتب تبقى كما هي (مع تصحيح بسيط لـ /lock)...
 router.post("/lock", auth(["student", "admin"]), async (req, res) => {
-  const { examId, studentId } = req.body;
-  try {
-    const result = await ExamResult.findOneAndUpdate(
-      { examId, studentId },
-      { locked: true },
-      { new: true, upsert: true }
-    );
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+  const { examId } = req.body;
+  // 🔒 SECURITY FIX: استخدم ID المستخدم من التوكن
+  const studentId = req.user._id; 
+  try {
+    const result = await ExamResult.findOneAndUpdate(
+      // ✅ FIX: أسماء الحقول يجب أن تطابق الـ Schema (exam وليس examId)
+      { exam: examId, student: studentId },
+      { locked: true },
+      { new: true, upsert: true }
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-// 📌 استرجاع نتائج طالب محدد (Admins فقط)
 router.get("/student/:id", auth(["admin"]), async (req, res) => {
   try {
     const results = await ExamResult.find({ student: req.params.id })
-      .populate("exam", "title subject date")         // بيانات الامتحان
-      .populate("student", "name stdcode grade email")   // بيانات الطالب
+      .populate("exam", "title subject date")
+      .populate("student", "name stdcode grade email")
       .sort({ completedAt: -1 });
 
     res.json(results);
@@ -103,8 +128,6 @@ router.get("/student/:id", auth(["admin"]), async (req, res) => {
   }
 });
 
-
-// 📌 استرجاع نتائج امتحان محدد (للامن فقط)
 router.get("/exam/:examId", auth(["admin"]), async (req, res) => {
   try {
     const results = await ExamResult.find({ exam: req.params.examId })
@@ -117,7 +140,6 @@ router.get("/exam/:examId", auth(["admin"]), async (req, res) => {
   }
 });
 
-// 📌 استرجاع نتيجة واحدة (طالب X امتحان)
 router.get("/:examId/:studentId", auth(["student", "admin"]), async (req, res) => {
   try {
     const { examId, studentId } = req.params;
@@ -132,7 +154,6 @@ router.get("/:examId/:studentId", auth(["student", "admin"]), async (req, res) =
   }
 });
 
-// 📌 حذف نتيجة (Admins فقط)
 router.delete("/:id", auth(["admin"]), async (req, res) => {
   try {
     await ExamResult.findByIdAndDelete(req.params.id);

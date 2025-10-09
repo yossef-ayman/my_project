@@ -50,37 +50,7 @@ const ExamManager = ({ onBack }) => {
   }, [token]);
 
   // 📌 إضافة امتحان
-  const handleAddExam = async () => {
-    // التأكد من أن درجة النجاح ليست فارغة
-    if (!newExam.title || !newExam.subject || !newExam.date || !newExam.passingScore) {
-      toast({ title: "خطأ", description: "يرجى ملء كل الحقول المطلوبة", variant: "destructive" })
-      return
-    }
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(newExam),
-      })
-      
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || "فشل إضافة الامتحان")
-      }
 
-      const data = await res.json()
-      setExams([data, ...exams])
-      // إعادة تعيين الحالة لتشمل درجة النجاح
-      setNewExam({ title: "", subject: "", description: "", date: "", duration: "", passingScore: "" })
-      setShowAddForm(false)
-      toast({ title: "✅ تم", description: `تمت إضافة الامتحان ${data.title}` })
-    } catch (err) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" })
-    }
-  }
 
   // ... (بقية الدوال تبقى كما هي بدون تغيير)
   // 📌 إضافة / تعديل سؤال
@@ -154,6 +124,65 @@ const ExamManager = ({ onBack }) => {
       toast({ title: "خطأ", description: "تعذر تحديث حالة الامتحان", variant: "destructive" })
     }
   }
+  // 📌 حذف امتحان
+const handleDeleteExam = async (examId) => {
+  if (!window.confirm("هل أنت متأكد من حذف هذا الامتحان؟")) return;
+  try {
+    const res = await fetch(`${API_URL}/${examId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setExams(prev => prev.filter(e => e._id !== examId));
+      toast({ title: "تم الحذف ✅", description: data.message });
+    } else {
+      throw new Error(data.error || "فشل حذف الامتحان");
+    }
+  } catch (err) {
+    toast({ title: "خطأ", description: err.message, variant: "destructive" });
+  }
+};
+
+// 📌 تعديل بيانات امتحان (نفس زر الإضافة لكن مع فحص selectedExamId)
+const handleAddExam = async () => {
+  if (!newExam.title || !newExam.subject || !newExam.date || !newExam.passingScore) {
+    toast({ title: "خطأ", description: "يرجى ملء كل الحقول المطلوبة", variant: "destructive" });
+    return;
+  }
+
+  try {
+    const method = selectedExamId ? "PUT" : "POST";
+    const url = selectedExamId ? `${API_URL}/${selectedExamId}` : API_URL;
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(newExam),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "فشل حفظ الامتحان");
+
+    if (selectedExamId) {
+      setExams(prev => prev.map(e => (e._id === selectedExamId ? data : e)));
+      toast({ title: "تم ✅", description: "تم تعديل بيانات الامتحان بنجاح" });
+    } else {
+      setExams([data, ...exams]);
+      toast({ title: "تم ✅", description: "تمت إضافة الامتحان بنجاح" });
+    }
+
+    setNewExam({ title: "", subject: "", description: "", date: "", duration: "", passingScore: "" });
+    setSelectedExamId(null);
+    setShowAddForm(false);
+  } catch (err) {
+    toast({ title: "خطأ", description: err.message, variant: "destructive" });
+  }
+};
+
 
 
   return (
@@ -237,50 +266,92 @@ const ExamManager = ({ onBack }) => {
         </Card>
       )}
 
-      {/* عرض الامتحانات */}
-      {exams.map(exam => (
-        <Card key={exam._id}>
-          <CardHeader>
-            <CardTitle>{exam.title}</CardTitle>
-            <CardDescription>{exam.subject}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2 items-center">
-              <Badge>{new Date(exam.date).toLocaleDateString("ar-EG")}</Badge>
-              <Badge variant="secondary">{exam.duration || 'N/A'} دقيقة</Badge>
-              <Badge variant="secondary">{exam.questions.length} سؤال</Badge>
-              <Badge variant="outline">النجاح: {exam.passingScore}</Badge>
-              <Badge className={exam.isActive ? "bg-green-500 text-white" : "bg-gray-400 text-white"}>
-                {exam.isActive ? "نشط" : "متوقف"}
-              </Badge>
-              <Button onClick={() => toggleExamStatus(exam._id)} size="sm" variant="outline">تبديل الحالة</Button>
-            </div>
+{/* عرض الامتحانات */}
+{exams.map(exam => (
+  <Card key={exam._id}>
+    <CardHeader>
+      <CardTitle>{exam.title}</CardTitle>
+      <CardDescription>{exam.subject}</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <div className="flex flex-wrap gap-2 items-center">
+        <Badge>{new Date(exam.date).toLocaleDateString("ar-EG")}</Badge>
+        <Badge variant="secondary">{exam.duration || 'N/A'} دقيقة</Badge>
+        <Badge variant="secondary">{exam.questions.length} سؤال</Badge>
+        <Badge variant="outline">النجاح: {exam.passingScore}</Badge>
+        <Badge className={exam.isActive ? "bg-green-500 text-white" : "bg-gray-400 text-white"}>
+          {exam.isActive ? "نشط" : "متوقف"}
+        </Badge>
+        <Button onClick={() => toggleExamStatus(exam._id)} size="sm" variant="outline">تبديل الحالة</Button>
+      </div>
 
-            <div className="mt-4 space-y-2">
-              {exam.questions.map((q, i) => (
-                <div key={q._id} className="border p-3 rounded-md bg-gray-50">
-                  <p className="font-semibold">{i + 1}. {q.question}</p>
-                  <ul className="list-disc pr-5 mt-1 text-sm">
-                    {q.options.map((opt, j) => (
-                      <li key={j} className={q.correctAnswer === j ? "font-bold text-blue-600" : "text-gray-700"}>
-                        {opt}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex gap-2 mt-2">
-                    <Button onClick={() => handleEditQuestion(q, exam._id)} size="sm" variant="outline">✏️ تعديل</Button>
-                    <Button onClick={() => handleDeleteQuestion(q._id, exam._id)} size="sm" variant="destructive">🗑️ حذف</Button>
-                  </div>
-                </div>
+      {/* الأسئلة */}
+      <div className="mt-4 space-y-2">
+        {exam.questions.map((q, i) => (
+          <div key={q._id} className="border p-3 rounded-md bg-gray-50">
+            <p className="font-semibold">{i + 1}. {q.question}</p>
+            <ul className="list-disc pr-5 mt-1 text-sm">
+              {q.options.map((opt, j) => (
+                <li key={j} className={q.correctAnswer === j ? "font-bold text-blue-600" : "text-gray-700"}>
+                  {opt}
+                </li>
               ))}
+            </ul>
+            <div className="flex gap-2 mt-2">
+              <Button onClick={() => handleEditQuestion(q, exam._id)} size="sm" variant="outline">✏️ تعديل</Button>
+              <Button onClick={() => handleDeleteQuestion(q._id, exam._id)} size="sm" variant="destructive">🗑️ حذف</Button>
             </div>
-            <Button onClick={() => { setSelectedExamId(exam._id); setShowQuestionForm(true); setEditingQuestionId(null); setNewQuestion({ question: "", image: "", options: ["", "", "", ""], correctAnswer: 0 }); }} size="sm" className="mt-4">
-              <Plus className="h-4 w-4 ml-1"/>
-              إضافة سؤال جديد
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+        ))}
+      </div>
+
+      {/* أزرار إدارة الامتحان */}
+      <div className="flex gap-2 mt-4">
+        <Button
+          size="sm"
+          className="bg-yellow-500 hover:bg-yellow-600 text-white"
+          onClick={() => {
+            setNewExam({
+              title: exam.title,
+              subject: exam.subject,
+              description: exam.description,
+              date: exam.date.split("T")[0],
+              duration: exam.duration,
+              passingScore: exam.passingScore,
+            });
+            setSelectedExamId(exam._id);
+            setShowAddForm(true);
+          }}
+        >
+          ✏️ تعديل بيانات الامتحان
+        </Button>
+
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => handleDeleteExam(exam._id)}
+        >
+          🗑️ حذف الامتحان
+        </Button>
+
+        <Button
+          onClick={() => {
+            setSelectedExamId(exam._id);
+            setShowQuestionForm(true);
+            setEditingQuestionId(null);
+            setNewQuestion({ question: "", image: "", options: ["", "", "", ""], correctAnswer: 0 });
+          }}
+          size="sm"
+          className="bg-blue-500 text-white"
+        >
+          <Plus className="h-4 w-4 ml-1" />
+          إضافة سؤال جديد
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+))}
+
     </div>
   )
 }
