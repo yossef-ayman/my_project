@@ -2,49 +2,60 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { useState, useEffect } from "react"
-import StudentDetails from "./components/admin/StudentDetails"
-import AdminDashboard from "./components/AdminDashboard"
-import ExamManager from "./components/admin/ExamManager"
-import NewsManager from "./components/admin/NewsManager"
-import CenterSettings from "./components/admin/CenterSettings"
-import StudentManager from "./components/admin/StudentManager"
-import AttendanceSystem from "./components/admin/AttendanceSystem"
-import AwardsManager from "./components/admin/AwardsManager"
-import StudentPortal from "./components/student/StudentPortal"
+
+// 🧩 الصفحات الأساسية
 import Login from "./components/Login"
+import Signup from "./components/Signup"
 
-import { ToastContainer } from "react-toastify"
-import "react-toastify/dist/ReactToastify.css"
+// 🧩 صفحات الأدمن
+import AdminDashboard from "./components/AdminDashboard"
+import StudentManager from "./components/admin/StudentManager"
+import StudentDetails from "./components/admin/StudentDetails"
+import AttendanceSystem from "./components/admin/AttendanceSystem"
+import NewsManager from "./components/admin/NewsManager"
+import AwardsManager from "./components/admin/AwardsManager"
+import ExamManager from "./components/admin/ExamManager"
+import CenterSettings from "./components/admin/CenterSettings"
 
-// 🟢 استيراد ProtectedRoute
+// 🧩 صفحة الطالب
+import StudentPortal from "./components/student/StudentPortal"
+
+// 🧩 حماية الصفحات
 import ProtectedRoute from "./components/ProtectedRoute"
 
-// 🟢 استيراد التوستر
+// 🧩 التوست (الإشعارات)
+import { ToastContainer } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 import { Toaster } from "./components/ui/toaster"
 import { ToastProvider } from "./hooks/use-toast"
 
 function App() {
   const [students, setStudents] = useState([])
   const [user, setUser] = useState(null)
+  const apiBaseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
 
-  // 📌 عند أول تحميل، نقرأ التوكن واليوزر من localStorage
+  // 📌 عند أول تحميل، نحمل بيانات المستخدم والطلاب
   useEffect(() => {
     const savedUser = localStorage.getItem("user")
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
+    if (savedUser) setUser(JSON.parse(savedUser))
 
-    fetch(`${process.env.REACT_APP_API_URL}/students`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
+    const token = localStorage.getItem("authToken")
+    if (!token) return
+
+    fetch(`${apiBaseUrl}/students`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
       .then((res) => res.json())
-      .then((data) => setStudents(data))
+      .then((data) => {
+        if (Array.isArray(data)) setStudents(data)
+      })
       .catch((err) => console.error("❌ Error fetching students:", err))
-  }, [])
+  }, [apiBaseUrl])
 
+  // 🟢 إضافة طالب
   const handleAddStudent = async (student) => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/students`, {
+      const res = await fetch(`${apiBaseUrl}/students`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -60,9 +71,10 @@ function App() {
     }
   }
 
+  // 🔴 حذف طالب
   const handleRemoveStudent = async (id) => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/students/${id}`, {
+      const res = await fetch(`${apiBaseUrl}/students/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
       })
@@ -77,13 +89,16 @@ function App() {
     <ToastProvider>
       <Router>
         <Routes>
-          {/* افتراضي يروح للوجن */}
+          {/* 🏠 الافتراضي: توجيه إلى تسجيل الدخول */}
           <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* تسجيل الدخول */}
+          {/* 🔐 تسجيل الدخول */}
           <Route path="/login" element={<Login onLogin={setUser} />} />
-          
-          {/* لوحة إدارة الأدمن */}
+
+          {/* 🆕 إنشاء حساب جديد */}
+          <Route path="/signup" element={<Signup />} />
+
+          {/* 🧭 لوحة إدارة الأدمن */}
           <Route
             path="/admin"
             element={
@@ -93,7 +108,7 @@ function App() {
             }
           />
 
-          {/* بوابة الطالب */}
+          {/* 🎓 بوابة الطالب */}
           <Route
             path="/student"
             element={
@@ -106,7 +121,7 @@ function App() {
             }
           />
 
-          {/* إدارة الطلاب */}
+          {/* 👩‍🎓 إدارة الطلاب */}
           <Route
             path="/admin/students"
             element={
@@ -119,7 +134,18 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/students/:id" element={<ProtectedRoute roles={["admin"]}><StudentDetails /></ProtectedRoute>} />
+
+          {/* 🔍 تفاصيل الطالب */}
+          <Route 
+            path="/students/:id" 
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <StudentDetails />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* 🗓️ باقي صفحات الأدمن */}
           <Route path="/admin/attendance" element={<ProtectedRoute roles={["admin"]}><AttendanceSystem /></ProtectedRoute>} />
           <Route path="/admin/news" element={<ProtectedRoute roles={["admin"]}><NewsManager /></ProtectedRoute>} />
           <Route path="/admin/awards" element={<ProtectedRoute roles={["admin"]}><AwardsManager /></ProtectedRoute>} />
@@ -127,11 +153,10 @@ function App() {
           <Route path="/admin/settings" element={<ProtectedRoute roles={["admin"]}><CenterSettings /></ProtectedRoute>} />
         </Routes>
 
-        {/* 🟢 التوستر */}
+        {/* 🔔 نظام الإشعارات */}
         <Toaster />
       </Router>
 
-      {/* 🟢 React-Toastify */}
       <ToastContainer
         position="top-right"
         autoClose={5000}

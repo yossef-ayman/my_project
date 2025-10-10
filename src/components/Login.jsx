@@ -1,7 +1,9 @@
+// في ملف Login.jsx
+
 "use client"
 
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom" // ✅ استيراد Link هنا
 import { toast, Bounce } from "react-toastify"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
@@ -16,6 +18,7 @@ const Login = ({ onLogin }) => {
   const navigate = useNavigate()
   const apiBaseUrl = process.env.REACT_APP_API_URL
 
+  // ... (دالة handleSubmit كما هي)
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
@@ -35,11 +38,9 @@ const Login = ({ onLogin }) => {
       }
 
       if (res.ok && data.token) {
-        // ✅ حفظ بيانات المستخدم + التوكن
         localStorage.setItem("authToken", data.token)
         localStorage.setItem("user", JSON.stringify(data.user))
 
-        // ✅ خطوة جديدة: جلب بيانات الطالب بعد تسجيل الدخول بنجاح
         if (data.user.role === "student") {
           const studentRes = await fetch(`${apiBaseUrl}/students/${data.user._id}`, {
             headers: { Authorization: `Bearer ${data.token}` },
@@ -50,14 +51,13 @@ const Login = ({ onLogin }) => {
           }
         }
 
-        // ✅ كولباك داخلي للـ state
         onLogin?.({
           email: data.user.email,
           name: data.user.name,
           role: data.user.role,
           token: data.token,
         })
-
+        
         toast.success(`مرحبا بعودتك ${data.user.name}`, {
           position: "top-right",
           autoClose: 3000,
@@ -65,7 +65,6 @@ const Login = ({ onLogin }) => {
           transition: Bounce,
         })
 
-        // ✅ إعادة التوجيه حسب الدور
         if (data.user.role === "admin") navigate("/admin")
         else navigate("/student")
       } else {
@@ -88,9 +87,11 @@ const Login = ({ onLogin }) => {
     }
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
+        {/* ... (الجزء العلوي كما هو) ... */}
         <div className="text-center space-y-4">
           <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto animate-glow">
             <GraduationCap className="h-10 w-10 text-white animate-wiggle" />
@@ -112,6 +113,7 @@ const Login = ({ onLogin }) => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* ... حقول البريد وكلمة المرور ... */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <User className="h-4 w-4" /> البريد الإلكتروني
@@ -141,7 +143,7 @@ const Login = ({ onLogin }) => {
                   className="text-right"
                 />
               </div>
-
+              
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300"
@@ -158,11 +160,19 @@ const Login = ({ onLogin }) => {
                   </>
                 )}
               </Button>
+
             </form>
           </CardContent>
         </Card>
 
         <div className="text-center text-sm text-gray-600 space-y-2">
+          {/* ⚠️ إضافة رابط التسجيل ⚠️ */}
+          <p className="text-base">
+            هل أنت طالب جديد؟ {" "}
+            <Link to="/signup" className="text-purple-600 hover:text-blue-700 font-bold transition-colors duration-200">
+                سجل حسابك الآن
+            </Link>
+          </p>
           <p>للدعم الفني: 01002470826</p>
           <p>© 2024 الاستاذ - جميع الحقوق محفوظة</p>
         </div>
