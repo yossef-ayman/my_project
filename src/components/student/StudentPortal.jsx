@@ -31,7 +31,9 @@ const LoadingScreen = () => (
     </div>
 );
 
-const StudentPortal = ({ user = {}, student = {} }) => {
+const StudentPortal = ({ user = {} }) => {
+  const [student, setStudent] = useState(() => JSON.parse(localStorage.getItem("student")) || {});
+
   const [currentView, setCurrentView] = useState("dashboard");
   const [selectedExam, setSelectedExam] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null); // جديد: لتخزين نتيجة المراجعة

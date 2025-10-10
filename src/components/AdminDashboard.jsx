@@ -11,6 +11,7 @@ import {
   UserPlus,
   ClipboardCheck,
   Award,
+  Exam,
   Newspaper,
   FileText,
   Settings,
@@ -20,7 +21,9 @@ import {
 const AdminDashboard = ({ user, onLogout }) => {
   const [students, setStudents] = useState([])
   const [news, setNews] = useState([])
+  const [awards, setAwards] = useState([])
   const [places, setPlaces] = useState([])
+  const [exams, setExams] = useState([])
   const navigate = useNavigate()
   const token = localStorage.getItem("authToken")
 
@@ -33,15 +36,19 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       const headers = { Authorization: `Bearer ${token}` }
 
-      const [resStudents, resNews, resPlaces] = await Promise.all([
+      const [resStudents, resNews, resPlaces ,resAwards,resExams] = await Promise.all([
         fetch(`${process.env.REACT_APP_API_URL}/students`, { headers }),
         fetch(`${process.env.REACT_APP_API_URL}/news`, { headers }),
         fetch(`${process.env.REACT_APP_API_URL}/places`, { headers }),
+        fetch(`${process.env.REACT_APP_API_URL}/awards`, { headers }),
+        fetch(`${process.env.REACT_APP_API_URL}/exams`, { headers }),
       ])
 
       setStudents(await resStudents.json())
       setNews(await resNews.json())
       setPlaces(await resPlaces.json())
+      setAwards(await resAwards.json())
+      setExams(await resExams.json())
     } catch (err) {
       console.error("❌ خطأ تحميل البيانات", err)
     }
@@ -220,7 +227,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-700">12</div>
+                <div className="text-2xl font-bold text-yellow-700">{awards.length}</div>
                 <p className="text-sm text-yellow-600">تكريم هذا الشهر</p>
               </CardContent>
             </Card>
@@ -238,7 +245,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-indigo-700">3</div>
+                <div className="text-2xl font-bold text-indigo-700">{exams.length}</div>
                 <p className="text-sm text-indigo-600">امتحان نشط</p>
               </CardContent>
             </Card>
